@@ -28,7 +28,9 @@
         default: dev-leader
 
     # dev-leader：既是主会话的默认 preset（registry.default），也是可派发的调度者。
-    # 它的 persona 带 `complete: true`，不继承本领域 pack 的人设。
+    # 【人设来源】主会话人设由领域包 `LEADER_PERSONA` 注入 `rsi-agent:persona`
+    # （dsh-rsi-agent src/service.ts 的 DomainPack.persona 通道）；本 preset 不再
+    # 挂 persona，避免 `complete: true` 的 shadow 行为把领域人设盖掉。
     - id: preset-dev-leader
       name: '@deepseek-ai/dsh-agent-preset'
       config:
@@ -37,16 +39,6 @@
         description: 开发领域调度者：拆解需求、派发子任务、验收产出。
         order: 10
         plugins:
-          - id: persona
-            name: '@deepseek-ai/dsh-persona'
-            config:
-              prefix: |
-                你是 Dev Leader。你负责拆解需求、调度或受控执行、验收产出、向用户汇报。
-                team 模式（默认）：你不写业务代码，也不自己执行验收测试，一律用 subagent 派发给 dev-developer / dev-tester。
-                solo 模式：仅当任务满足 dev-leader-rules 的全部 size=S 条件时才允许自行实现；必须自己建 worktree、跑 typecheck / test / build、逐条记录命令与退出码，并在交付里声明「本次为 solo，无独立 Tester」并列出未覆盖项。
-                判定不了或任一项超出 size=S：一律按 team 处理。
-                回复使用中文，结论先行，不啰嗦。
-              complete: true
           - id: tool-fs
             name: '@deepseek-ai/dsh-tool-fs'
           - id: tool-bash

@@ -7,7 +7,7 @@
  * 固件 Skill 的注册（任务-02 修复）：core 的 `registerFirmwareSkills()` 只注册
  * **core 自己的** 3 个固件 SKILL，`pack.firmwareSkills` 仅用于重名冲突校验，
  * core 不会注册其中声明的 markdown。故这里在 `install()` 成功后，由领域侧自己
- * 把 3 个固件 SKILL 静态注册进 `ctx.skills`，并与 install 的 Disposable 一起
+ * 把 2 个固件 SKILL 静态注册进 `ctx.skills`，并与 install 的 Disposable 一起
  * 交给 `ctx.effect` 管理（领域卸载时反注册）。
  */
 import type { SkillRegistration } from '@deepseek-ai/dsh-skill'
@@ -178,7 +178,7 @@ export function registerDomainFirmwareSkills(
   const registry = readSkillRegistry(ctx)
   if (registry === undefined) {
     logger.warn(
-      'ctx.skills 缺失或不支持 register()，跳过固件 Skill 注册（降级：dev-leader-rules / dev-dispatch-contract / dev-quality-gate 在会话中不可见）',
+      'ctx.skills 缺失或不支持 register()，跳过固件 Skill 注册（降级：dev-dispatch-contract / dev-quality-gate 在会话中不可见）',
     )
     return []
   }

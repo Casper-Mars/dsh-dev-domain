@@ -273,7 +273,7 @@ whenToUse: 开始推进任意一个已拆解任务时使用，确保不跳步、
 
 **禁止什么**
 
-- 禁止在 \`team\` 模式下由 Leader 自己代替 Tester 出结论（自证不算验证）；\`solo\` 模式按 \`dev-leader-rules\` 第 4 节自证并声明「无独立 Tester」。
+- 禁止在 \`team\` 模式下由 Leader 自己代替 Tester 出结论（自证不算验证）；\`solo\` 模式按人设中的 solo 自证要求自证并声明「无独立 Tester」。
 - 禁止 Tester 修改业务代码让测试变绿；
 - 禁止跳过反向用例（错误输入、边界值）。
 
