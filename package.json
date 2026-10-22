@@ -32,6 +32,7 @@
     "dist-server/types/**/*.d.ts",
     "dist-server/**/*.md",
     "dist-server/cordis.patch.yml",
+    "scripts/verify-install.mjs",
     "skills/",
     "cordis.patch.yml"
   ],
@@ -48,6 +49,7 @@
     "build:server": "pnpm clean && tsc -p tsconfig.server.json && node scripts/copy-assets.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests",
+    "verify:install": "node scripts/verify-install.mjs",
     "clean": "rm -rf dist dist-server",
     "prepublishOnly": "pnpm build"
   },
