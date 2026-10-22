@@ -17,18 +17,18 @@
 
     - id: agent-preset-registry
       name: '@deepseek-ai/dsh-agent-preset-registry'
-      # 默认 preset 必须是「偏只读」的那个：漏传 agent_preset 时不应落到可写角色。
-      # schema 里 default 是 required（删掉会校验失败），因此选择显式指向 dev-tester；
-      # 写操作必须由 Leader 显式传 dev-developer。
+      # 【路径 1：主会话】这个 default 决定**主会话**用哪个 preset，必须是 dev-leader。
+      # 不要把它和子 agent 的兜底混为一谈：两者是两条独立路径。
+      # 【路径 2：子 agent 兜底】见下面 preset-dev-leader 内与顶层补丁的
+      # tool-subagent.agentPreset（dsh 0.2.1-rc.2 lib/index.js:252 只读后者，
+      # 不看 registry.default）。漏传 agent_preset 时落到那里的 dev-tester（只读）。
       #
-      # 坑：这个 default 只影响 registry 自己的解析，dsh-tool-subagent 用的是它自己
-      # config.agentPreset（0.2.1-rc.2 lib/index.js:252），两处（含顶层的同名字段）必须一致。
+      # schema 里 default 是 required（删掉会校验失败）。
       config:
         default: dev-leader
 
-    # Leader 主会话的人设由本领域 pack 提供（agentHost.install）：
-    # 可进化资产、调度纪律与质量红线都在 pack 的 persona / firmware skill 里。
-    # preset 只负责子 agent，并通过 `complete: true` 切断对 Leader 人设的继承。
+    # dev-leader：既是主会话的默认 preset（registry.default），也是可派发的调度者。
+    # 它的 persona 带 `complete: true`，不继承本领域 pack 的人设。
     - id: preset-dev-leader
       name: '@deepseek-ai/dsh-agent-preset'
       config:
@@ -57,11 +57,10 @@
             name: '@deepseek-ai/dsh-tool-todo'
             config:
               allowParallelInProgress: false
-          # 注意：`agent-preset-registry.default` 只影响 registry 自己的解析，
+          # 【子 agent 兜底路径】与 agent-preset-registry.default（主会话）无关：
           # dsh-tool-subagent 在未传 agent_preset 时直接用这里的 agentPreset
-          # （0.2.1-rc.2 lib/index.js:252），因此漏传即落到本值。必须与 registry
-          # 的 default 保持一致，都是只读的 dev-tester；写操作由 Leader 显式传
-          # dev-developer（allowedAgentPresets 已放行）。
+          # （0.2.1-rc.2 lib/index.js:252）。这里必须是只读的 dev-tester，
+          # 写操作由 Leader 显式传 dev-developer（allowedAgentPresets 已放行）。
           - id: tool-subagent
             name: '@deepseek-ai/dsh-tool-subagent'
             config:
@@ -124,8 +123,9 @@
               allowParallelInProgress: false
 
 # 顶层补丁：基座 bundle 已声明 tool-subagent，这里只覆盖 config（沿用 spike 已验证写法）。
-# agentPreset 必须与上面 preset-dev-leader 里那处、以及 agent-preset-registry.default
-# 三处一致，都指向只读的 dev-tester：subagent 工具解析 preset 时不看 registry.default。
+# 这是子 agent 兜底的第二处（第一处在 preset-dev-leader 内），两处都必须保持
+# agentPreset: dev-tester。注意它**不**决定主会话 preset——主会话只看
+# agent-preset-registry.default（= dev-leader）；subagent 工具解析 preset 时不看 registry.default。
 - id: tool-subagent
   config:
     provider: spawn

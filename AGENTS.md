@@ -27,7 +27,7 @@
 |------|--------|----------|
 | `pnpm install` | 按 `pnpm-workspace.yaml` 的 override 把 `dsh-rsi-agent` 链到 `../dsh-rsi-agent` | 退出码 0，生成 `node_modules/`；需同级存在 core 仓库 checkout（`worktrees/dsh-rsi-agent` 符号链接） |
 | `pnpm typecheck` | `tsc -p tsconfig.json --noEmit` | 退出码 0，无类型错误输出 |
-| `pnpm test` | `vitest run`，3 个 spec 文件 | **56 passed**、退出码 0；注意脚本带 `--passWithNoTests`，0 个用例也会退出 0，不能只看退出码 |
+| `pnpm test` | `vitest run`，3 个 spec 文件 | **57 passed**、退出码 0；注意脚本带 `--passWithNoTests`，0 个用例也会退出 0，不能只看退出码 |
 | `pnpm build` | `clean` → `typecheck` → `tsc -p tsconfig.server.json` → `copy-assets.mjs` | 退出码 0，产出 `dist-server/index.js` 与 `dist-server/cordis.patch.yml` |
 | `pnpm verify:install` | 校验 7 个种子 + 5 个 references + 3 个固件 | 15 行 `PASS`、退出码 0；有 `FAIL` 退出码 1；参数或环境错误退出码 2 |
 
@@ -92,8 +92,10 @@
 ### 配方 D：改 preset / 默认 preset
 
 1. 改 `cordis.patch.yml`；
-2. `pnpm test`（会校验：3 个 preset 都 `complete: true`；默认 preset 不是 `dev-developer` —— 同时覆盖
-   `agent-preset-registry.default` 与**两处** `tool-subagent.agentPreset`（Leader preset 内 + 顶层补丁）；
+2. `pnpm test`（会校验两条**独立**路径：① **主会话**——`agent-preset-registry.default` 必须是
+   `dev-leader`，且不得是 `dev-developer` / `dev-tester`；② **子 agent 漏传兜底**——**两处**
+   `tool-subagent.agentPreset`（Leader preset 内 + 顶层补丁）必须是 `dev-tester`；
+   另校验 3 个 preset 都 `complete: true`、`allowedAgentPresets` 不含 `dev-leader`、
    `tool-subagent` 恰好两处、`maxDepth: 1`）；
 3. 用全新 `DSH_HOME` 安装一次，跑 `dsh --profile <p> --dump-config` 核对组合树（不要用 `--dump-config-schema`，见常见坑）；
 4. 同步 README 的「3 个 preset」小节。
@@ -130,12 +132,12 @@
 3. **`pnpm link:` 不会为被链接包装依赖**：把本包装进 profile 后，还要在 profile 目录单独 `pnpm add link:<core>`；否则 bundle patch 插入的 `rsi-agent` 行解析不到。
 4. **`--dump-config-schema` 对嵌套 `plugins` 报错**：3 个 preset 各报一条 `unrecognized Loader tree carrier` 并以退出码 1 结束（dsh 自身限制）。schema 仍会打印到 stdout；日常核对组合树用 `--dump-config`（退出码 0）。
 5. **子 agent 不会自动加载 Skill**：派发卡片必须点名角色 Skill（Developer：`dev-role-developer` + `dev-test-strategy`；Tester：`dev-role-tester` + `dev-test-strategy`），并要求回报 `STACK=… REF=… DETECT=…`。只写「按规范执行」等于没有约束。
-6. **`pnpm test` 的 `--passWithNoTests`**：测试文件被误删或 include 配错时仍会退出 0。判据是 56 passed，不是退出码。
+6. **`pnpm test` 的 `--passWithNoTests`**：测试文件被误删或 include 配错时仍会退出 0。判据是 57 passed，不是退出码。
 
 ## 9. 交付前检查清单
 
 - [ ] `pnpm typecheck` → exit 0
-- [ ] `pnpm test` → exit 0，且 **56 passed**（数量随改动更新时，以真实输出为准）
+- [ ] `pnpm test` → exit 0，且 **57 passed**（数量随改动更新时，以真实输出为准）
 - [ ] `pnpm build` → exit 0，`dist-server/index.js` 与 `dist-server/cordis.patch.yml` 存在
 - [ ] 改过种子 / references 时：`templates/` 与 `src/seeds.ts` 逐字节一致（`pnpm test` 已验证）
 - [ ] 改过资产数量时：`scripts/verify-install.mjs` 的期望清单、测试断言、README 已同步

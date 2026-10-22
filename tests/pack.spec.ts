@@ -442,13 +442,15 @@ describe('Leader 人设与子 agent 隔离', () => {
     }
   })
 
-  it('cordis.patch.yml：agent-preset-registry 的默认 preset 不是可写角色', () => {
+  it('cordis.patch.yml：agent-preset-registry.default 是主会话 preset（dev-leader）', () => {
     const patch = readRepoFile('cordis.patch.yml')
     const block = patch.split('id: agent-preset-registry')[1]?.split('\n    - id: preset-dev-')[0] as string
     expect(block, 'agent-preset-registry 配置块缺失').toBeTruthy()
-    // schema 里 default 是 required，不能删；漏传 agent_preset 时只允许落到只读的 tester。
-    expect(block).toMatch(/default:\s*dev-tester\b/)
+    // 这里的 default 决定**主会话**人设，必须是 Leader；
+    // 子 agent 的漏传兜底是另一条路径（tool-subagent.agentPreset = dev-tester）。
+    expect(block).toMatch(/default:\s*dev-leader\b/)
     expect(block).not.toMatch(/default:\s*dev-developer\b/)
+    expect(block).not.toMatch(/default:\s*dev-tester\b/)
   })
 
   it('cordis.patch.yml：两处 tool-subagent 的 agentPreset 都是 dev-tester', () => {
@@ -467,6 +469,15 @@ describe('Leader 人设与子 agent 隔离', () => {
 
     // 兜底：全文任何位置都不允许出现可写角色的默认值。
     expect(patch).not.toMatch(/agentPreset:\s*dev-developer\b/)
+
+    // dev-leader 是主会话 preset，不是可派发目标：绝不能出现在 allowedAgentPresets 里。
+    for (const [index, block] of blocks.entries()) {
+      const allowed = /allowedAgentPresets:\s*\[([^\]]*)\]/.exec(block)?.[1] ?? ''
+      expect(allowed, `第 ${index + 1} 个 tool-subagent 块缺少 allowedAgentPresets`).not.toBe('')
+      expect(allowed, `第 ${index + 1} 个 tool-subagent 块不得把 dev-leader 列为可派发目标`).not.toContain(
+        'dev-leader',
+      )
+    }
   })
 
   it('cordis.patch.yml：Leader preset 与顶层都挂了 subagent，且限深 1', () => {
@@ -476,13 +487,23 @@ describe('Leader 人设与子 agent 隔离', () => {
     // Leader preset 内 + 顶层补丁，共两处 tool-subagent 配置。
     expect(patch.match(/id: tool-subagent/g)).toHaveLength(2)
 
-    const leaderBlock = patch.split('preset-dev-leader')[1].split('preset-dev-developer')[0] as string
+    // 用列表项边界切块：注释里也会出现 preset 名，不能直接按名字切。
+    const leaderBlock = patch
+      .split('\n    - id: preset-dev-leader')
+      .at(1)
+      ?.split('\n    - id: preset-dev-developer')[0] as string
     expect(leaderBlock).toContain('id: tool-subagent')
 
     // 子 agent preset 不**额外挂载** subagent；顶层补丁会让它在子 preset 的 scope 中可见，
     // 真正拦住递归的是 maxDepth: 1。
-    const developerBlock = patch.split('preset-dev-developer')[1].split('preset-dev-tester')[0] as string
-    const testerBlock = patch.split('preset-dev-tester')[1].split('\n# 顶层补丁')[0] as string
+    const developerBlock = patch
+      .split('\n    - id: preset-dev-developer')
+      .at(1)
+      ?.split('\n    - id: preset-dev-tester')[0] as string
+    const testerBlock = patch
+      .split('\n    - id: preset-dev-tester')
+      .at(1)
+      ?.split('\n# 顶层补丁')[0] as string
     expect(developerBlock).not.toContain('tool-subagent')
     expect(testerBlock).not.toContain('tool-subagent')
   })

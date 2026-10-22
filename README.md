@@ -119,8 +119,9 @@ git -C "$DSH_HOME/.dsh-rsi-agent/dev/assets" log --oneline
 预期：`agentHost.active.id === 'dev'`、`agentHost.active.toolNames === []`；`skills.list()` 共
 **13 条** = 7 个可进化种子 + 3 个领域固件（`dev-leader-rules` / `dev-dispatch-contract` /
 `dev-quality-gate`）+ 3 个 core 固件（`rsi-evolution` / `skill-authorship` / `task-authorship`）；
-3 个 preset 均无 `broken` 诊断；`agent_preset` 枚举为 `dev-developer` / `dev-tester`
-（默认值为 `dev-tester`，见「3 个 preset」）；子 agent 的 system prompt 只含自己的角色措辞。
+3 个 preset 均无 `broken` 诊断；**主会话**由 `agent-preset-registry.default: dev-leader` 决定；
+子 agent 的 `agent_preset` 枚举为 `dev-developer` / `dev-tester`（漏传时兜底 `dev-tester`，
+见「3 个 preset」）；子 agent 的 system prompt 只含自己的角色措辞。
 
 #### 自动化自检：`pnpm verify:install`
 
@@ -219,7 +220,7 @@ cwd 做一次；`GIT_WRITE_BLOCKED` 下不要反复重试或尝试提权。
 
 ```bash
 pnpm typecheck     # tsc --noEmit
-pnpm test          # vitest（56 个用例：契约 / 种子 / references / 校验 / 固件注册 / 真实 AgentHost 集成 / 安装后自检）
+pnpm test          # vitest（57 个用例：契约 / 种子 / references / 校验 / 固件注册 / 真实 AgentHost 集成 / 安装后自检）
 pnpm build         # 编译到 dist-server/ 并复制 cordis.patch.yml（内含 typecheck）
 pnpm verify:install # 15 项安装后自检（DSH_HOME 已设置时校验安装态资产）
 ```
@@ -227,7 +228,7 @@ pnpm verify:install # 15 项安装后自检（DSH_HOME 已设置时校验安装�
 改种子请先改 `templates/<name>/`（含 `references/*.md`），再同步 `src/seeds.ts`——
 测试会与 templates 逐字节比对，漂移会直接失败。
 
-> `pnpm test` 带 `--passWithNoTests`：0 个用例也会退出 0。成功判据是 **56 passed**，不是只看退出码。
+> `pnpm test` 带 `--passWithNoTests`：0 个用例也会退出 0。成功判据是 **57 passed**，不是只看退出码。
 
 ## 10 个领域 Skill（运行态 13 条）
 
@@ -294,18 +295,21 @@ references 随种子同批注册（同一个 commit）；`validate` 只放行 `s
 
 | preset | 用途 | 工具面 |
 |--------|------|--------|
-| `dev-leader` | 调度者（含 `subagent`，限深 1） | fs / bash / skill / todo / subagent |
+| `dev-leader` | 主会话默认 preset / 调度者（含 `subagent`，限深 1） | fs / bash / skill / todo / subagent |
 | `dev-developer` | 编码执行者（写操作必须显式指定） | fs / bash / skill / todo |
 | `dev-tester` | 验证执行者 | fs / bash / skill / todo |
 
-档位语义：
+档位语义（**两条独立路径，不要混**）：
 
-- `agent-preset-registry.default: dev-tester` —— 子 agent 未显式指定时的兜底；
-  选偏只读角色，是因为漏传 `agent_preset` 时不应落到可写角色。**写操作必须由 Leader
-  显式传 `dev-developer`**，不要依赖默认值；
-- `allowedAgentPresets: [dev-developer, dev-tester]`、`maxDepth: 1` —— Leader 只能派给
-  Developer / Tester，子 agent 无法再向下派发（因此 `agent_preset` 枚举只有这两项，
-  `dev-leader` 仍注册在 registry 里，但不作为可派发目标）；
+- `agent-preset-registry.default: dev-leader` —— 决定**主会话**用哪个 preset。
+  主会话必须是 Leader；把它改成 `dev-tester` / `dev-developer` 会让主会话直接变成子 agent 人设；
+- `tool-subagent.agentPreset: dev-tester` —— 只影响**子 agent 漏传 `agent_preset`** 时的兜底
+  （`preset-dev-leader` 内与顶层补丁共两处，subagent 工具解析时不看 `registry.default`）。
+  选偏只读角色，是因为漏传时不应落到可写角色；**写操作必须由 Leader 显式传
+  `dev-developer`**，不要依赖默认值；
+- `allowedAgentPresets: [dev-developer, dev-tester]`、`maxDepth: 1` —— 只影响**可派发目标**：
+  Leader 只能派给 Developer / Tester，子 agent 无法再向下派发（因此 `agent_preset` 枚举只有
+  这两项；`dev-leader` 仍注册在 registry 里，但**不**作为可派发目标）；
 - **关于子 preset 的 `subagent`**：Developer / Tester 的 preset 里**不额外挂载**
   `subagent`，但顶层补丁（`tool-subagent`）会让该工具在子 preset 的 scope 中可见；
   真正拦住递归的是 `maxDepth: 1`，而不是「工具不存在」。
