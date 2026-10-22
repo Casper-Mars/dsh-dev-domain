@@ -3,12 +3,12 @@
  *
  * 背景：core 的 `registerFirmwareSkills()` 只注册 core 自己的 3 个固件 SKILL，
  * `pack.firmwareSkills` 仅用于重名冲突校验。若不修，挂载后
- * `skills.get('dev-leader-rules')` 是 undefined，README 的「10 个 Skill 可用」不成立。
+ * `skills.get('dev-dispatch-contract')` 是 undefined，README 的「9 个领域 Skill 可用」不成立。
  *
  * 两层：
  *   - **纯函数层**：frontmatter 解析、注册参数构造、注册计划查重；
  *   - **集成层**：真实 `SkillRegistry` + `AgentHost` + `apply()`，
- *     验证 3 个固件可见 / 7 个种子仍可见 / 卸载反注册 / skills 缺失降级。
+ *     验证 2 个固件可见 / 7 个种子仍可见 / 卸载反注册 / skills 缺失降级。
  */
 import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -118,8 +118,8 @@ describe('固件 SKILL 解析', () => {
     )
   })
 
-  it('3 个固件的注册参数：name/description/whenToUse/path/resourceBase/invocation 全部合规', () => {
-    expect(devPack.firmwareSkills).toHaveLength(3)
+  it('2 个固件的注册参数：name/description/whenToUse/path/resourceBase/invocation 全部合规', () => {
+    expect(devPack.firmwareSkills).toHaveLength(2)
 
     for (const skill of devPack.firmwareSkills ?? []) {
       const registration = buildFirmwareSkillRegistration(skill)
@@ -148,7 +148,7 @@ describe('固件 SKILL 解析', () => {
 
   it('声明名与 frontmatter.name 不一致 → 抛错', () => {
     const broken: FirmwareSkill = {
-      name: 'dev-leader-rules',
+      name: 'dev-dispatch-contract',
       description: '声明名与 frontmatter 不一致',
       markdown: ['---', 'name: other-skill', 'description: x', 'whenToUse: y', '---', '正文'].join(
         '\n',
@@ -178,7 +178,7 @@ describe('注册计划查重', () => {
     expect(plan.skipped).toEqual([{ name: 'b-skill', reason: 'already-registered' }])
   })
 
-  it('devPack 的 3 个固件全部进入计划，无跳过', () => {
+  it('devPack 的 2 个固件全部进入计划，无跳过', () => {
     const plan = planFirmwareSkillRegistrations(devPack.firmwareSkills)
     expect(plan.registrations.map((item) => item.name)).toEqual(FIRMWARE_NAMES)
     expect(plan.skipped).toEqual([])
@@ -190,14 +190,14 @@ describe('注册计划查重', () => {
  * ------------------------------------------------------------------ */
 
 describe('注册失败回滚与幂等查重', () => {
-  it('第 3 个注册抛错 → 已注册的 2 个被反注册，错误信息点出回滚项', () => {
+  it('第 2 个注册抛错 → 已注册的 1 个被反注册，错误信息点出回滚项', () => {
     const { logger } = recordingLogger()
     const unregistered: string[] = []
     let calls = 0
     const registry = {
       register(registration: { name: string }) {
         calls += 1
-        if (calls === 3) throw new Error('boom')
+        if (calls === 2) throw new Error('boom')
         return () => {
           unregistered.push(registration.name)
         }
@@ -206,8 +206,8 @@ describe('注册失败回滚与幂等查重', () => {
 
     expect(() =>
       registerDomainFirmwareSkills(fakeContext(registry), devPack.firmwareSkills, logger),
-    ).toThrowError(/已回滚 \[dev-dispatch-contract, dev-leader-rules\]/)
-    expect(unregistered).toEqual(['dev-dispatch-contract', 'dev-leader-rules'])
+    ).toThrowError(/已回滚 \[dev-dispatch-contract\]/)
+    expect(unregistered).toEqual(['dev-dispatch-contract'])
   })
 
   it('同一 ctx 第二次调用 → 全部跳过并 warn，注册表不变', () => {
@@ -224,15 +224,15 @@ describe('注册失败回滚与幂等查重', () => {
     const ctx = fakeContext(registry)
 
     const first = registerDomainFirmwareSkills(ctx, devPack.firmwareSkills, logger)
-    expect(first).toHaveLength(3)
+    expect(first).toHaveLength(2)
     expect([...live].sort()).toEqual([...FIRMWARE_NAMES].sort())
     expect(warns).toEqual([])
 
     const second = registerDomainFirmwareSkills(ctx, devPack.firmwareSkills, logger)
     expect(second).toHaveLength(0)
     expect(warns).toHaveLength(1)
-    expect(warns[0]).toContain('跳过 3 个固件 Skill')
-    expect(warns[0]).toContain('dev-leader-rules')
+    expect(warns[0]).toContain('跳过 2 个固件 Skill')
+    expect(warns[0]).toContain('dev-dispatch-contract')
     expect([...live].sort()).toEqual([...FIRMWARE_NAMES].sort())
   })
 
@@ -254,8 +254,8 @@ describe('注册失败回滚与幂等查重', () => {
     expect(live.size).toBe(0)
 
     const second = registerDomainFirmwareSkills(ctx, devPack.firmwareSkills, logger)
-    expect(second).toHaveLength(3)
-    expect(live.size).toBe(3)
+    expect(second).toHaveLength(2)
+    expect(live.size).toBe(2)
     expect(warns).toEqual([])
   })
 })
@@ -265,7 +265,7 @@ describe('注册失败回滚与幂等查重', () => {
  * ------------------------------------------------------------------ */
 
 describe('真实挂载（SkillRegistry + AgentHost + apply）', () => {
-  it('挂载后 3 个固件 Skill 立即可见，provider 就绪后 7 个种子也在；工具面仍为空', async () => {
+  it('挂载后 2 个固件 Skill 立即可见，provider 就绪后 7 个种子也在；工具面仍为空', async () => {
     isolatedHome('mount')
     const ctx = new Context()
     const registry = new SkillRegistry(ctx)
@@ -282,11 +282,11 @@ describe('真实挂载（SkillRegistry + AgentHost + apply）', () => {
       expect(firmware.map((summary) => summary.name).sort()).toEqual([...FIRMWARE_NAMES].sort())
       expect(firmware.every((summary) => summary.provider === 'runtime')).toBe(true)
 
-      const definition = await registry.get('dev-leader-rules')
-      expect(definition?.name).toBe('dev-leader-rules')
+      const definition = await registry.get('dev-dispatch-contract')
+      expect(definition?.name).toBe('dev-dispatch-contract')
       expect(definition?.source).toBe('runtime')
       expect(definition?.content.startsWith('---')).toBe(false)
-      expect(definition?.content).toContain('Dev Leader')
+      expect(definition?.content).toContain('派发契约')
       expect(definition?.invocation).toEqual({ modelInvocable: true, userInvocable: true })
 
       // 7 个可进化种子由 skill-filesystem provider 提供：就绪后可见。
@@ -299,7 +299,7 @@ describe('真实挂载（SkillRegistry + AgentHost + apply）', () => {
     }
   }, 40_000)
 
-  it('卸载领域后 3 个固件 Skill 被反注册，7 个种子资产仍保留在磁盘', async () => {
+  it('卸载领域后 2 个固件 Skill 被反注册，7 个种子资产仍保留在磁盘', async () => {
     isolatedHome('dispose')
     const ctx = new Context()
     const registry = new SkillRegistry(ctx)
@@ -332,7 +332,7 @@ describe('真实挂载（SkillRegistry + AgentHost + apply）', () => {
     expect(registerDomainFirmwareSkills(ctx, devPack.firmwareSkills, logger)).toEqual([])
     expect(warns).toHaveLength(1)
     expect(warns[0]).toContain('ctx.skills')
-    expect(warns[0]).toContain('dev-leader-rules')
+    expect(warns[0]).toContain('dev-dispatch-contract')
 
     // 插件装配的降级路径：只 warn，不阻断 install。
     apply(ctx)

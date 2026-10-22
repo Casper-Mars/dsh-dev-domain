@@ -389,11 +389,11 @@ describe('assets.types[].validate 语义校验', () => {
  * ------------------------------------------------------------------ */
 
 describe('固件 Skill', () => {
-  it('恰好 3 个，名称唯一且不占用 core 保留名', () => {
+  it('恰好 2 个，名称唯一且不占用 core 保留名', () => {
     const firmware = devPack.firmwareSkills ?? []
-    expect(firmware).toHaveLength(3)
+    expect(firmware).toHaveLength(2)
     const names = firmware.map((skill) => skill.name)
-    expect(new Set(names).size).toBe(3)
+    expect(new Set(names).size).toBe(2)
     for (const name of names) {
       expect(FIRMWARE_SKILL_NAMES).not.toContain(name)
     }
@@ -408,7 +408,7 @@ describe('固件 Skill', () => {
     }
   })
 
-  it('3 个固件与 7 个种子名称互不重复', () => {
+  it('2 个固件与 7 个种子名称互不重复', () => {
     const firmwareNames = new Set((devPack.firmwareSkills ?? []).map((skill) => skill.name))
     for (const seed of SEED_SKILLS) {
       expect(firmwareNames.has(seed.name)).toBe(false)
@@ -423,22 +423,38 @@ describe('固件 Skill', () => {
 describe('Leader 人设与子 agent 隔离', () => {
   const persona = devPack.persona.markdown()
 
-  it('人设非空、含 Leader 身份与硬约束，且不超过 64 KB', () => {
+  it('人设承载完整 Leader 规则（模式判定 / 元操作 / Red Lines / 检查清单），且不超过 64 KB', () => {
     expect(persona.trim().length).toBeGreaterThan(0)
     expect(persona).toContain('Dev Leader')
     expect(persona).toContain('`team` 模式（默认）')
     expect(persona).toContain('`solo` 模式')
+    expect(persona).toContain('## 2. 先量 size，再判 team / solo')
+    expect(persona).toContain('| 改动文件数 | ≤ 2 |')
+    expect(persona).toContain('**默认 team**')
+    expect(persona).toContain('## 3. team 模式：只做元操作')
+    expect(persona).toContain('## Red Lines（不可协商）')
+    expect(persona).toContain('## 检查清单')
+    // Leader 规则已并入人设：细节只指向保留下来的两个固件 Skill。
+    expect(persona).toContain('`dev-dispatch-contract`')
+    expect(persona).toContain('`dev-quality-gate`')
     expect(persona).not.toContain('绝不自己写业务代码')
     expect(Buffer.byteLength(persona, 'utf8')).toBeLessThanOrEqual(64 * 1024)
   })
 
-  it('cordis.patch.yml：3 个 preset 都用 complete: true 切断 Leader 人设继承', () => {
+  it('cordis.patch.yml：主会话 preset 不挂 persona（人设来自领域包），两个子 agent preset 用 complete: true 隔离', () => {
     const patch = readRepoFile('cordis.patch.yml')
     const sections = patch.split(/\n {4}- id: preset-dev-/).slice(1)
     expect(sections).toHaveLength(3)
     for (const section of sections) {
       const head = section.slice(0, section.indexOf('\n\n'))
-      expect(head, '每个 preset 的 persona 必须 complete: true').toContain('complete: true')
+      if (head.includes('id: dev-leader\n')) {
+        // Leader 人设由 `DomainPack.persona.markdown()` 注入 `rsi-agent:persona`；
+        // preset 再挂 persona 会以 shadow 关系把领域人设盖掉。
+        expect(head, 'Leader preset 不得再挂 persona').not.toContain('id: persona')
+        expect(head, 'Leader preset 不得再宣告 complete').not.toContain('complete: true')
+        continue
+      }
+      expect(head, '子 agent preset 的 persona 必须 complete: true').toContain('complete: true')
     }
   })
 

@@ -1,5 +1,5 @@
 /**
- * 安装后自检（`pnpm verify:install`）：确认 7 个可进化种子 Skill、5 个 references、3 个固件
+ * 安装后自检（`pnpm verify:install`）：确认 7 个可进化种子 Skill、5 个 references、2 个固件
  * Skill 可见，缺失时非 0 退出。检查 `<资产根>/<seed>/SKILL.md`、
  * `<资产根>/dev-test-strategy/references/<stack>.md`、`<固件根>/<firmware>/SKILL.md`
  * （对齐 `src/pack.ts` / `src/firmware.ts`，只读不落盘）。
@@ -17,7 +17,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 /** 期望清单：唯一真源，测试直接断言。 */
 export const EXPECTED_SEED_SKILLS = ['dev-decompose', 'dev-ralph-loop', 'dev-worktree-git', 'dev-test-strategy', 'dev-role-developer', 'dev-role-tester', 'dev-retro']
 export const EXPECTED_REFERENCE_STACKS = ['go', 'harmony-arkts', 'node-ts', 'python', 'react']
-export const EXPECTED_FIRMWARE_SKILLS = ['dev-leader-rules', 'dev-dispatch-contract', 'dev-quality-gate']
+export const EXPECTED_FIRMWARE_SKILLS = ['dev-dispatch-contract', 'dev-quality-gate']
 export const EXPECTED_CHECK_COUNT = EXPECTED_SEED_SKILLS.length + EXPECTED_REFERENCE_STACKS.length + EXPECTED_FIRMWARE_SKILLS.length
 
 /** dsh 已安装资产相对 home 的固定路径；来源 → CLI / 环境变量名（错误信息用）。 */
@@ -46,7 +46,7 @@ function check(kind, name, file) {
   return { kind, name, path: file, ok: reason === '', reason }
 }
 
-/** 执行 15 项自检（7 + 5 + 3），不抛错、不写盘；返回 `checks/passed/failed/ok` 与回显信息。 */
+/** 执行 14 项自检（7 + 5 + 2），不抛错、不写盘；返回 `checks/passed/failed/ok` 与回显信息。 */
 export function verifyInstall({ assetsRoot, firmwareRoot, assetsSource = 'assets' }) {
   if (!assetsRoot || !firmwareRoot) throw new TypeError('verifyInstall 需要 assetsRoot 与 firmwareRoot')
   const checks = [
@@ -58,7 +58,7 @@ export function verifyInstall({ assetsRoot, firmwareRoot, assetsSource = 'assets
   return { assetsRoot, firmwareRoot, assetsSource, checks, passed, failed: checks.length - passed, ok: passed === checks.length }
 }
 
-/** 报告 → 文本行：`PASS` / `FAIL` 行只对应检查项（恰好 15 条），其余以 `#` 开头，便于 grep 计数。 */
+/** 报告 → 文本行：`PASS` / `FAIL` 行只对应检查项（恰好 14 条），其余以 `#` 开头，便于 grep 计数。 */
 export function formatReport(result) {
   const lines = [`# verify-install：assets=${result.assetsRoot} firmware=${result.firmwareRoot} 来源=${result.assetsSource}`]
   if (result.assetsSource === 'templates') {

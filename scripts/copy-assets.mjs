@@ -6,7 +6,7 @@
  * 2. `src/**` 下的 Markdown（人设等）按原相对路径复制，使编译态下
  *    `new URL('./x.md', import.meta.url)` 依然可解析。
  *
- * 说明：3 个固件 SKILL 的正文位于仓库根的 `skills/`，由 `package.json` 的
+ * 说明：2 个固件 SKILL 的正文位于仓库根的 `skills/`，由 `package.json` 的
  * `files` 字段直接随包分发；编译态的 `dist-server/pack.js` 通过
  * `new URL('../skills/<name>/SKILL.md', import.meta.url)` 指向包根目录，
  * 源码态与编译态路径语义一致，无需复制。
