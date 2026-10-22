@@ -7,7 +7,8 @@ whenToUse: 以 Developer 身份接到 Leader 派发的编码任务时，先读�
 # Developer 角色规范
 
 你是通用 Developer：接收 Leader 派发的**单个**任务并完成编码。输入是任务卡片，
-输出是「可验证的分支 + commit + 证据」。拆解、调度、验收判定都不是你的职责。
+输出是「可验证的分支 + commit + 证据」（沙箱禁止写 `.git` 时为「当前工作区 + `git diff` + 证据」，
+见步骤 2 前置）。拆解、调度、验收判定都不是你的职责。
 
 ## 触发条件
 
@@ -37,7 +38,12 @@ git -C <项目根目录> status --short     # 确认主仓库干净
 git -C <项目根目录> log --oneline -3   # 确认基点
 ```
 
-## 步骤 2：创建 worktree
+## 步骤 2：创建 worktree（或按卡片走工作区交付）
+
+**前置**：先看任务卡第 10 项的 `delivery_mode` 与写权限预检结果；不要在子 agent 自己的 cwd 重跑预检
+（子 agent 的 cwd 可能比 dsh 的 workspaceRoot 更深，会误判）。`GIT_WRITE_BLOCKED` 时不要建 worktree，
+按卡片的 `delivery_mode=workspace` 直接在当前工作区编码，并在交付里写明「未提交 + 原因」；
+`GIT_WRITE_OK` 时按下面的命令建分支与目录。
 
 **做什么**：按 `dev-worktree-git` 规范建分支与目录，不共用别人的目录。
 
@@ -50,17 +56,21 @@ cd <项目根目录>/../worktrees/<项目名>-feat-<任务号>-<描述>
 git status --short && git log --oneline -1
 ```
 
-**产物**：独立目录 + 独立分支，`git log -1` 显示预期基点。
+**产物**：独立目录 + 独立分支，`git log -1` 显示预期基点；`delivery_mode=workspace` 时产物是
+「当前工作区 + 基线 commit + `git diff` 快照」。
 
 ## 步骤 3：按栈读 reference 搭环境
 
 **做什么**
 
 1. 判断技术栈：`ls go.mod package.json pyproject.toml build-profile.json5 2>/dev/null`；
-2. 打开 `dev-test-strategy`，按检测表路由到 `references/<stack>.md`；
+2. 打开 `dev-test-strategy`，按检测表路由到 `references/<stack>.md`；写出路由声明 `STACK=… REF=… DETECT=…`；
 3. 按 reference 的「环境准备」安装依赖，版本以仓库文件为准
    （`.nvmrc` / `go.mod` / `.python-version` / `packageManager`）；
 4. 若企业环境规范（wiki）有要求，以规范为准。
+
+**硬要求**：动手前必须 `read` 对应 `references/<stack>.md`，并在回报里贴出 `STACK=… REF=…`
+与从 ref 复制的命令；只加载 `dev-test-strategy` 不算完成路由。没读 ref、没抄命令 = 本步未完成，Leader/Tester 应打回。
 
 **命令（示例，具体以 reference 为准）**
 
@@ -118,6 +128,9 @@ ruff check . && mypy . && pytest -q           # Python
 2. 汇报：分支 + commit hash、命令与退出码、逐条验收证据、未覆盖项、残余风险；
 3. 除非任务明确要求，**不 push**、不开 PR。
 
+`delivery_mode=workspace` 时省略 commit，改为附 `git status --short` + `git diff` 原文，
+并写明「未提交 + 原因（如主仓库 `.git` 在沙箱外）」，不得把未提交说成已提交。
+
 ```bash
 git add <明确的路径>
 git commit -m "feat(task-04): 扩写 7 个可进化 Skill 与五栈 references"
@@ -143,8 +156,9 @@ git log --oneline -1
 ## 检查清单
 
 - [ ] 卡片信息完整，歧义已澄清；
-- [ ] worktree 独立，分支命名合规，基点正确；
-- [ ] 已按栈读取对应 reference 并按其命令装好环境；
+- [ ] 已确认 `delivery_mode` 与写权限预检结果（`workspace` 时交付含 `git diff` 与「未提交 + 原因」）；
+- [ ] worktree 独立，分支命名合规，基点正确（`workspace` 形态下改为基线 commit 已记录）；
+- [ ] 已按栈读取对应 reference，回报里贴了 `STACK=… REF=…` 与复制自 ref 的命令；
 - [ ] 改动范围与卡片一致，无越界文件；
 - [ ] typecheck / test / build 全绿，退出码已记录；
 - [ ] commit message 合规，必要时已拆 commit；

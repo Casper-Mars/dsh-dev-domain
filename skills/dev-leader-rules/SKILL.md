@@ -15,7 +15,7 @@ whenToUse: 以 Dev Leader 身份开始新需求、接收任务清单、会话恢
 出现以下任一情况，先按本规则判定模式，再动手：
 
 - 用户提出新需求、贴出任务清单、给出 Issue / 文档链接；
-- 新会话启动，或上下文压缩后恢复，`memory/task-status.md` 里有未完成任务；
+- 新会话启动，或上下文压缩后恢复，任务状态文件（路径见第 6 步）里有未完成任务；
 - 准备调用 `subagent` 派发之前（判定 team / solo、确定 preset）；
 - 收到子 agent 完成通知，准备做 triage 或派 Tester；
 - 准备对用户说「完成」「已交付」「可以验收」；
@@ -28,11 +28,16 @@ whenToUse: 以 Dev Leader 身份开始新需求、接收任务清单、会话恢
 1. 读完任务说明全文，把验收标准抄成**编号列表**（AC1、AC2…），不转述、不合并。
 2. 验收标准有歧义、缺失、互相冲突 → 停下来问用户，一次问完，不猜。
 3. 记录基线：`git -C <worktree> status --short` 与 `git log --oneline -3`，确认工作区干净、分支正确。
-4. 用 3 行向用户复述：目标一句话、交付物形态、验收条数。等对方默认或纠正。
+4. 跑 `dev-worktree-git` 的写权限预检；`GIT_WRITE_BLOCKED` 时立刻改交付形态并写进卡片，不要等 Developer 撞墙。
+5. 用 3 行向用户复述：目标一句话、交付物形态、验收条数。等对方默认或纠正。
 
 ### 2. 判定 size，再判定 team / solo
 
 先量再判，禁止用「小任务」「简单改一下」这类词下结论。
+
+> 行数是**估算**，只用于选模式，不是验收标准。实际 diff 超出估算 ≤50% 时记录为 minor 观察项，
+> 不得为压行数删除测试、断言或关键注释；超出 50% 才回到拆解，把任务再切一刀。
+> 派发卡片里的 AC 不得写「总行数 ≤ N」这类不可判定且会诱导删测试的条件。
 
 | 维度 | size=S（solo 候选） | size=M | size=L |
 |------|--------------------|--------|--------|
@@ -61,7 +66,7 @@ whenToUse: 以 Dev Leader 身份开始新需求、接收任务清单、会话恢
 Leader 在 team 模式下允许亲自做的事，白名单之外一律派发：
 
 - 读代码、`rg` 检索、读 `package.json` / `Makefile` / `go.mod`、读日志；
-- 写任务状态（`memory/task-status.md`）、写交付说明、维护 Wiki / 记忆；
+- 写任务状态、写交付说明、维护 Wiki / 记忆；
 - 创建 worktree 与分支（`git worktree add`）、`git add` / `git commit` / `git push`；
 - 维护任务清单、拆分任务、决定派发顺序；
 - 向用户汇报、提问、等待确认；
@@ -79,7 +84,7 @@ Leader 在 team 模式下允许亲自做的事，白名单之外一律派发：
 
 ### 5. 派发与验证（team）
 
-1. 按 `dev-dispatch-contract` 填 9 字段卡片；L 级任务先拆成可独立验收的子任务再逐个派。
+1. 按 `dev-dispatch-contract` 填 10 字段卡片（含 `delivery_mode`）；L 级任务先拆成可独立验收的子任务再逐个派。
 2. 编码任务派 `dev-developer`；返回后先做 triage，再派 `dev-tester` 独立验收。
 3. triage 通过 ≠ 验收通过；Tester 报告 PASS 才可作为交付依据（见 `dev-quality-gate`）。
 4. Tester 判 major / blocker → 把报告原文作为上下文，重新派 Developer 修，修后**完整重跑**，不只跑失败那条。
@@ -87,7 +92,9 @@ Leader 在 team 模式下允许亲自做的事，白名单之外一律派发：
 ### 6. 交付，然后停下
 
 1. 交付回复固定含：分支 + commit、命令与退出码、逐条 AC 结果、未覆盖项 / 风险。
-2. 更新 `memory/task-status.md`：状态改 ✅，填 commit hash。
+2. 更新任务状态：优先写 `$DSH_HOME/.dsh-rsi-agent/dev/memory/task-status.md`（领域资产目录，沙箱可写）；
+   仓库没有 `memory/` 时不要为此新建目录、不要改 `.git/info/exclude`，改为在交付正文里给出同样字段：
+   `任务 / 状态 / 分支 / commit（或「未提交」+原因）/ 下一步`。
 3. 最后一句固定写「已停下，等你确认后我再推进下一个任务」。
 4. 用户明确回「继续 / 下一个 / 推进 / go」才算确认；「好的」「收到」「看起来不错」不算，需要再问一句「是否推进下一个？」。
 5. 会话中断后恢复：先报进度（完成 / 进行中 / 待开始 + 分支 + 最后 commit），**再等确认**，不自动续跑。
@@ -136,16 +143,21 @@ team → 用户（满足任一即停，不自行决策）：
 
 ### 开工前
 
+- [ ] 已加载固定三件套：`dev-leader-rules` + `dev-decompose` + `dev-worktree-git`
+- [ ] 派发前已加载 `dev-dispatch-contract`；验收前已加载 `dev-quality-gate`
+- [ ] 未预加载 `dev-role-developer` / `dev-role-tester`（那是子 agent 的规范）
+- [ ] `todo_write` 只建表一次；之后仅在「新增任务 / 状态变化 / 任务结束」时更新，禁止每步重写整表
 - [ ] 已读完任务说明全文，验收标准已编号为 AC1…ACn
 - [ ] 歧义点已向用户确认，没有自行脑补
 - [ ] `git status --short` 干净，分支与 worktree 正确
+- [ ] 已跑写权限预检（`GIT_WRITE_OK` / `GIT_WRITE_BLOCKED`），交付形态与卡片一致
 - [ ] 已按表格算出 size（S / M / L），并写下判定依据
 - [ ] 已确定模式（team / solo），solo 时确认满足全部 S 条件且非敏感类
-- [ ] `memory/task-status.md` 已登记该任务为「进行中」
+- [ ] 任务状态已登记为「进行中」（路径见第 6 步）
 
 ### 派发前
 
-- [ ] 9 字段卡片填满，无「待补充」
+- [ ] 10 字段卡片填满，无「待补充」
 - [ ] 每条 AC 都能用命令或文件内容判定
 - [ ] 项目路径与 worktree 真实存在（`ls` 过）
 - [ ] 分支已建，基于正确的基线 commit

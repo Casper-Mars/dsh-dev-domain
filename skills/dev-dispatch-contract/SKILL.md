@@ -1,6 +1,6 @@
 ---
 name: dev-dispatch-contract
-description: Leader 派发契约：9 字段上下文卡片、preset 选择表、Developer/Tester 边界、派发即结束本轮与失败回报格式。
+description: Leader 派发契约：10 字段上下文卡片、preset 选择表、Developer/Tester 边界、派发即结束本轮与失败回报格式。
 whenToUse: 准备调用 subagent 派发任务之前，或收到子 agent 回报需要核对格式时使用。
 ---
 
@@ -30,7 +30,7 @@ whenToUse: 准备调用 subagent 派发任务之前，或收到子 agent 回报�
 - `maxDepth: 1`：子 agent 无法再向下派发。需要多人协作时，由 Leader 串行拆成多次派发，禁止让子 agent「自己找人」。
 - 一次派发只装一个可独立验收的任务；两个不相关任务塞一张卡片 = 返工。
 
-### 2. 填 9 字段卡片（直接复制改写）
+### 2. 填 10 字段卡片（直接复制改写）
 
 ```markdown
 📋 任务上下文
@@ -50,6 +50,8 @@ whenToUse: 准备调用 subagent 派发任务之前，或收到子 agent 回报�
 7. 约束：只改 skills/<name>/SKILL.md；禁止 push；禁止改 src/ tests/ templates/；frontmatter 只允许单行 key: value
 8. 相关关键词与 Skill：Wiki 检索「固件 skill / 派发契约」；本任务无需加载业务 Skill
 9. 交付格式：分支 + commit hash；每条命令 + 退出码；AC 逐条证据；未覆盖项与风险
+10. 交付形态与环境限制：`delivery_mode: commit|workspace`；不可写路径（如主仓库 `.git/`）、
+    无审批通道、网络/凭据限制、必须降级的命令
 ```
 
 字段硬要求：
@@ -57,6 +59,7 @@ whenToUse: 准备调用 subagent 派发任务之前，或收到子 agent 回报�
 - 第 6 项每条都要能被一条命令或一次文件检查判定，禁止「体验良好」「符合规范」。
 - 第 7 项必须显式写「禁止 push」，否则子 agent 可能自行推送。
 - 第 8 项没有可加载的 Skill 时写「无」，不要留空导致子 agent 自行发挥。
+- 第 10 项必须显式写 `delivery_mode`；`workspace` 时还要写清「Tester 如何取得交付物」（复制路径/忽略目录）。
 - 路径写绝对路径；相对路径在子 agent 的 cwd 里可能解析不到。
 
 ### 3. 调用方式
@@ -64,7 +67,7 @@ whenToUse: 准备调用 subagent 派发任务之前，或收到子 agent 回报�
 ```text
 subagent({
   description: "任务-03 固件 Skill 补全",   // 3~5 个词，用于列表展示
-  prompt: "<上面 9 字段卡片全文>",
+  prompt: "<上面 10 字段卡片全文>",
   agent_preset: "dev-developer",
   cwd: "/abs/path/to/worktree"
 })
@@ -82,7 +85,7 @@ subagent({
 
 ### 5. 收到回报后核对
 
-1. 对照 9 字段里的 AC 逐条读证据，不读结论句。
+1. 对照卡片里的 AC 逐条读证据，不读结论句。
 2. `git -C <worktree> status --short` 与 `git diff --stat`：改的文件是否在允许范围内。
 3. 命令与退出码是否齐全、是否可复现（必要时自己重跑一条只读命令）。
 4. 有越界改动 / 缺证据 / 结论与退出码矛盾 → 打回，不进入 Tester。
@@ -149,12 +152,13 @@ subagent({
 
 ### 派发前
 
-- [ ] 9 个字段全部填满，无「待补充」「见上」
+- [ ] 10 个字段全部填满，无「待补充」「见上」
 - [ ] 每条 AC 可判定，附了判定方式（命令 / 文件检查）
 - [ ] 项目路径与 worktree 真实存在（`ls` 过）
 - [ ] 分支已建，基线 commit 写进卡片
 - [ ] 约束写明只读目录、禁止 push、禁止改动的模块
 - [ ] 交付格式写明分支 + commit + 命令退出码 + 未覆盖项
+- [ ] 第 10 项 `delivery_mode` 已确认（`workspace` 时写明 Tester 的取物方式）
 - [ ] `agent_preset` 与任务类型匹配，`cwd` 指向 worktree
 - [ ] 只装了一个可独立验收的任务
 

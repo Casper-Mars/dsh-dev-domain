@@ -19,7 +19,8 @@ whenToUse: 以 Tester 身份接到验证任务，或需要对某个 commit 出�
 
 **做什么**
 
-1. 记录被验证的分支与 commit（必须是完整 hash 或短 hash，不接受「最新」）；
+1. 记录被验证的分支与 commit（必须是完整 hash 或短 hash，不接受「最新」）；`workspace` 形态下
+   记录基线 commit + `git diff` 指纹；
 2. 确认工作区干净，`git status --short` 为空；
 3. 核对 diff 范围：只改了任务允许的路径吗？有没有产物/密钥入库？
 
@@ -32,11 +33,23 @@ git -C <worktree> diff --name-only <base>..<commit>
 
 **产物**：被验证对象的三元组（分支 / commit / base）+ 改动文件清单。
 
+### 1.1 两种交付形态（先确认，别默认 commit）
+
+| 形态 | 识别信号 | 验收方式 |
+|------|----------|----------|
+| `commit`（默认） | 卡片给了 branch + commit hash，`git status` 干净 | `git worktree add --detach <tmp> <commit>` |
+| `workspace`（沙箱禁止写 `.git` 时） | 卡片写明「未提交，工作区交付」 | 把 `<worktree>` 复制到 `/tmp/verify-*`（`rsync -a --exclude node_modules --exclude .git`），在副本里跑；同时保存 `git diff` 原文作为交付指纹 |
+
+`workspace` 形态下，「`git status --short` 为空」不适用；改为要求：改动文件清单与卡片 AC 一致、
+`git diff` 非空、无未跟踪的临时文件。**不得**因为拿不到 commit 就跳过独立环境或复用 Developer 的结论。
+`commit` 形态下，步骤 1 第 2 条（工作区干净）依然必须满足。
+
 ## 步骤 2：独立复现环境
 
 **做什么**
 
-1. 用交付物声明的方式安装依赖，**不借用**开发者已装好的目录（必要时新建 worktree）；
+1. 用交付物声明的方式安装依赖，**不借用**开发者已装好的目录（`commit` 形态新建 worktree，
+   `workspace` 形态复制到 `/tmp/verify-*` 后安装）；
 2. 判断技术栈并读 `dev-test-strategy` → `references/<stack>.md`；
 3. 记录环境信息：OS、node/go/python 版本、依赖安装命令与结果；
 4. 拉起所需服务，确认端口/健康检查可用。
@@ -131,7 +144,7 @@ git -C <worktree> diff <base>..<commit> | rg -n "\.skip|\.only|xit\(|@pytest.mar
 
 ## 检查清单
 
-- [ ] 被验对象含分支 + commit + base，工作区干净；
+- [ ] 被验对象含分支 + commit + base，工作区干净（`workspace` 形态改为 diff 指纹 + 文件清单一致）；
 - [ ] diff 范围合规，无产物/密钥；
 - [ ] 环境独立复现，版本已记录；
 - [ ] 验收标准逐条有 pass/fail 与命令证据；

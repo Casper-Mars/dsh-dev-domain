@@ -66,6 +66,12 @@ whenToUse: 收到包含多个目标的需求、Issue 或任务清单，需要先
 
 按「一次交付一个可验证增量」切，不按文件、不按技术分层切。
 
+一个内聚的小特性（≤4 个文件、单一验收面、一次会话可完成）**允许就是 1 个任务**；
+不要为了凑数量把它拆成不能独立验收的碎片。拆解数量按「可独立验收的增量」计数，不按文件数计数。
+
+> 行数是**估算**，只用于选模式与粒度，不是验收标准。实际 diff 超出估算 ≤50% 时记录为 minor 观察项，
+> 不得为压行数删除测试、断言或关键注释；超出 50% 才回到拆解，把任务再切一刀。
+
 合格的粒度：
 
 - 一个任务 = 一个分支 = 一个 PR（或一次交付）；
@@ -144,7 +150,7 @@ T5 文档（依赖 T2、T3）
 
 - 每个任务都能独立回滚，不牵连其他任务；
 - 每个任务都有至少一条可执行命令作为验收证据；
-- 任务数量控制在 4~6 个：少于 4 个说明粒度太粗，多于 6 个说明在按文件切；
+- 任务数量按「可独立验收的增量」算：1~6 个；单个内聚小特性允许就是 1 个，多于 6 个说明在按文件切；
 - 任意两个任务的 diff 交集为空（共享文件必须先抽成前置任务）；
 - 拿给一个没参与讨论的人看，他能说出「先做哪个、做完怎么验」。
 
@@ -170,7 +176,7 @@ T5 文档（依赖 T2、T3）
 ## 检查清单
 
 - [ ] Why / How / Do What 三段都写了，且具体到可执行；
-- [ ] 任务数 4~6 个，每个 ≤ 10 文件 / ≤ 400 行；
+- [ ] 任务数 1~6 个（内聚小特性允许 1 个），每个 ≤ 10 文件 / ≈400 行（行数仅估算，不作为验收条件）；
 - [ ] 每个任务至少 1 条正向 + 1 条反向验收标准；
 - [ ] 验收标准是可复制执行的命令，不是形容词；
 - [ ] 依赖 DAG 已画，无循环，同层任务无文件交集；
@@ -362,7 +368,35 @@ whenToUse: 开始编码前创建 worktree、提交代码、处理冲突或清理
 - 任务结束，需要回收目录与分支；
 - 发现当前目录里有别人的改动或未提交文件。
 
-## 一、创建 worktree
+## 零、开工前写权限预检（必须，30 秒）
+
+dsh 默认 \`workspace-write\` 沙箱只允许写当前工作目录。linked worktree 的 git 元数据在主仓库
+\`.git/\`，经常在工作目录之外；不预检就直接 \`git worktree add\` / \`git switch -c\` / \`git commit\`
+会得到 \`Operation not permitted\`，且 headless 模式没有审批通道，无法升级权限。
+
+\`\`\`bash
+# 只在 Leader 启动 dsh 的那个 cwd 执行一次；子 agent 不要在自己的 cwd 重跑（会误判）。
+root=$(git rev-parse --show-toplevel)
+common=$(git rev-parse --git-common-dir)
+case "$common" in /*) ;; *) common="$root/$common" ;; esac
+common=$(cd "$(dirname "$common")" && pwd -P)/$(basename "$common")
+ws=$(pwd -P)          # dsh workspaceRoot = 启动 dsh 时的 cwd
+case "$common" in
+  "$ws"/*) echo "GIT_WRITE_OK" ;;
+  *) echo "GIT_WRITE_BLOCKED: git-common-dir=$common outside workspace=$ws" ;;
+esac
+\`\`\`
+
+| 结果 | 处理 |
+|------|------|
+| \`GIT_WRITE_OK\` | 按下面的规范建 worktree / 提交 |
+| \`GIT_WRITE_BLOCKED\` | 不要反复重试，也不要尝试提权。二选一：<br>A. 让 Leader 以**包含主仓库与 worktree 的父目录**作为 dsh 的 cwd 重新启动（推荐，\`workspaceRoot\` 随 cwd 扩大）；<br>B. 受信任仓库下用 \`DSH_PERMISSION_MODE=danger-full-access\` 启动 dsh，并在交付里声明该风险。 |
+| 两者都不可行 | 切换「工作区交付」：不建 worktree、不 commit，交付 \`git status --short\` + \`git diff\` + 建议 commit message；Tester 按 \`dev-role-tester\` 的「工作区交付」路径验收。 |
+
+> 禁止在 \`GIT_WRITE_BLOCKED\` 下假装已建分支/已提交；也禁止把 \`git switch -c\` 失败后的重试当成进展。
+> 预检只做一次，结果写进任务卡第 5 项与第 10 项。
+
+## 一、创建 worktree（仅 \`GIT_WRITE_OK\` 时）
 
 \`\`\`bash
 cd <项目根目录>
@@ -497,6 +531,7 @@ git -C <项目根目录> branch -d <branch>                # 已合并用 -d
 
 ## 检查清单
 
+- [ ] 开工前已跑写权限预检，结果（\`GIT_WRITE_OK\` / \`GIT_WRITE_BLOCKED\`）与所选交付形态已记录；
 - [ ] worktree 路径符合 \`<项目名>-<type>-<任务号>-<描述>\`；
 - [ ] 分支名符合 \`<type>/<任务号>-<描述>\`，type 在允许列表内；
 - [ ] 起点 ref 明确，\`git log -1\` 已确认；
@@ -543,12 +578,19 @@ whenToUse: 需要为一次改动确定测试范围、找到构建与测试命令
   同时有 \`react\` 与后端代码时看本次 diff 触及的目录；
 - 命中两条以上且无法区分 → 向用户确认，不要两套命令都跑。
 
-## 第二步：读对应参考
+## 第二步：读对应参考（硬要求）
+
+先在你的进度消息里写一行路由声明，再读文件：
+
+\`\`\`text
+STACK=<stack> REF=references/<stack>.md DETECT=<命中的清单文件>
+\`\`\`
 
 \`\`\`
 read references/<stack>.md
 \`\`\`
 
+未写出这一行、或未从 ref 复制至少 1 条命令到执行记录，视为未完成本步；Leader/Tester 应打回。
 参考文档固定包含：检测信号、环境准备、构建、静态检查、测试、最小样例、常见坑、失败判据。
 读完应当能直接复制命令执行，不需要再猜。
 
@@ -594,7 +636,8 @@ read references/<stack>.md
 ## 检查清单
 
 - [ ] 已按检测表命中唯一主栈，并记录了依据文件；
-- [ ] 已 \`read\` 对应 \`references/<stack>.md\`；
+- [ ] 已写出路由声明 \`STACK=… REF=… DETECT=…\`，并已 \`read\` 对应 \`references/<stack>.md\`；
+- [ ] 已从 ref 复制至少 1 条命令到执行记录；
 - [ ] 最小验证命令已跑通，退出码为 0；
 - [ ] 新增行为有正例 + 边界例；
 - [ ] 测试可重复，无外部随机依赖；
@@ -1310,7 +1353,8 @@ whenToUse: 以 Developer 身份接到 Leader 派发的编码任务时，先读�
 # Developer 角色规范
 
 你是通用 Developer：接收 Leader 派发的**单个**任务并完成编码。输入是任务卡片，
-输出是「可验证的分支 + commit + 证据」。拆解、调度、验收判定都不是你的职责。
+输出是「可验证的分支 + commit + 证据」（沙箱禁止写 \`.git\` 时为「当前工作区 + \`git diff\` + 证据」，
+见步骤 2 前置）。拆解、调度、验收判定都不是你的职责。
 
 ## 触发条件
 
@@ -1340,7 +1384,12 @@ git -C <项目根目录> status --short     # 确认主仓库干净
 git -C <项目根目录> log --oneline -3   # 确认基点
 \`\`\`
 
-## 步骤 2：创建 worktree
+## 步骤 2：创建 worktree（或按卡片走工作区交付）
+
+**前置**：先看任务卡第 10 项的 \`delivery_mode\` 与写权限预检结果；不要在子 agent 自己的 cwd 重跑预检
+（子 agent 的 cwd 可能比 dsh 的 workspaceRoot 更深，会误判）。\`GIT_WRITE_BLOCKED\` 时不要建 worktree，
+按卡片的 \`delivery_mode=workspace\` 直接在当前工作区编码，并在交付里写明「未提交 + 原因」；
+\`GIT_WRITE_OK\` 时按下面的命令建分支与目录。
 
 **做什么**：按 \`dev-worktree-git\` 规范建分支与目录，不共用别人的目录。
 
@@ -1353,17 +1402,21 @@ cd <项目根目录>/../worktrees/<项目名>-feat-<任务号>-<描述>
 git status --short && git log --oneline -1
 \`\`\`
 
-**产物**：独立目录 + 独立分支，\`git log -1\` 显示预期基点。
+**产物**：独立目录 + 独立分支，\`git log -1\` 显示预期基点；\`delivery_mode=workspace\` 时产物是
+「当前工作区 + 基线 commit + \`git diff\` 快照」。
 
 ## 步骤 3：按栈读 reference 搭环境
 
 **做什么**
 
 1. 判断技术栈：\`ls go.mod package.json pyproject.toml build-profile.json5 2>/dev/null\`；
-2. 打开 \`dev-test-strategy\`，按检测表路由到 \`references/<stack>.md\`；
+2. 打开 \`dev-test-strategy\`，按检测表路由到 \`references/<stack>.md\`；写出路由声明 \`STACK=… REF=… DETECT=…\`；
 3. 按 reference 的「环境准备」安装依赖，版本以仓库文件为准
    （\`.nvmrc\` / \`go.mod\` / \`.python-version\` / \`packageManager\`）；
 4. 若企业环境规范（wiki）有要求，以规范为准。
+
+**硬要求**：动手前必须 \`read\` 对应 \`references/<stack>.md\`，并在回报里贴出 \`STACK=… REF=…\`
+与从 ref 复制的命令；只加载 \`dev-test-strategy\` 不算完成路由。没读 ref、没抄命令 = 本步未完成，Leader/Tester 应打回。
 
 **命令（示例，具体以 reference 为准）**
 
@@ -1421,6 +1474,9 @@ ruff check . && mypy . && pytest -q           # Python
 2. 汇报：分支 + commit hash、命令与退出码、逐条验收证据、未覆盖项、残余风险；
 3. 除非任务明确要求，**不 push**、不开 PR。
 
+\`delivery_mode=workspace\` 时省略 commit，改为附 \`git status --short\` + \`git diff\` 原文，
+并写明「未提交 + 原因（如主仓库 \`.git\` 在沙箱外）」，不得把未提交说成已提交。
+
 \`\`\`bash
 git add <明确的路径>
 git commit -m "feat(task-04): 扩写 7 个可进化 Skill 与五栈 references"
@@ -1446,8 +1502,9 @@ git log --oneline -1
 ## 检查清单
 
 - [ ] 卡片信息完整，歧义已澄清；
-- [ ] worktree 独立，分支命名合规，基点正确；
-- [ ] 已按栈读取对应 reference 并按其命令装好环境；
+- [ ] 已确认 \`delivery_mode\` 与写权限预检结果（\`workspace\` 时交付含 \`git diff\` 与「未提交 + 原因」）；
+- [ ] worktree 独立，分支命名合规，基点正确（\`workspace\` 形态下改为基线 commit 已记录）；
+- [ ] 已按栈读取对应 reference，回报里贴了 \`STACK=… REF=…\` 与复制自 ref 的命令；
 - [ ] 改动范围与卡片一致，无越界文件；
 - [ ] typecheck / test / build 全绿，退出码已记录；
 - [ ] commit message 合规，必要时已拆 commit；
@@ -1477,7 +1534,8 @@ whenToUse: 以 Tester 身份接到验证任务，或需要对某个 commit 出�
 
 **做什么**
 
-1. 记录被验证的分支与 commit（必须是完整 hash 或短 hash，不接受「最新」）；
+1. 记录被验证的分支与 commit（必须是完整 hash 或短 hash，不接受「最新」）；\`workspace\` 形态下
+   记录基线 commit + \`git diff\` 指纹；
 2. 确认工作区干净，\`git status --short\` 为空；
 3. 核对 diff 范围：只改了任务允许的路径吗？有没有产物/密钥入库？
 
@@ -1490,11 +1548,23 @@ git -C <worktree> diff --name-only <base>..<commit>
 
 **产物**：被验证对象的三元组（分支 / commit / base）+ 改动文件清单。
 
+### 1.1 两种交付形态（先确认，别默认 commit）
+
+| 形态 | 识别信号 | 验收方式 |
+|------|----------|----------|
+| \`commit\`（默认） | 卡片给了 branch + commit hash，\`git status\` 干净 | \`git worktree add --detach <tmp> <commit>\` |
+| \`workspace\`（沙箱禁止写 \`.git\` 时） | 卡片写明「未提交，工作区交付」 | 把 \`<worktree>\` 复制到 \`/tmp/verify-*\`（\`rsync -a --exclude node_modules --exclude .git\`），在副本里跑；同时保存 \`git diff\` 原文作为交付指纹 |
+
+\`workspace\` 形态下，「\`git status --short\` 为空」不适用；改为要求：改动文件清单与卡片 AC 一致、
+\`git diff\` 非空、无未跟踪的临时文件。**不得**因为拿不到 commit 就跳过独立环境或复用 Developer 的结论。
+\`commit\` 形态下，步骤 1 第 2 条（工作区干净）依然必须满足。
+
 ## 步骤 2：独立复现环境
 
 **做什么**
 
-1. 用交付物声明的方式安装依赖，**不借用**开发者已装好的目录（必要时新建 worktree）；
+1. 用交付物声明的方式安装依赖，**不借用**开发者已装好的目录（\`commit\` 形态新建 worktree，
+   \`workspace\` 形态复制到 \`/tmp/verify-*\` 后安装）；
 2. 判断技术栈并读 \`dev-test-strategy\` → \`references/<stack>.md\`；
 3. 记录环境信息：OS、node/go/python 版本、依赖安装命令与结果；
 4. 拉起所需服务，确认端口/健康检查可用。
@@ -1589,7 +1659,7 @@ git -C <worktree> diff <base>..<commit> | rg -n "\\.skip|\\.only|xit\\(|@pytest.
 
 ## 检查清单
 
-- [ ] 被验对象含分支 + commit + base，工作区干净；
+- [ ] 被验对象含分支 + commit + base，工作区干净（\`workspace\` 形态改为 diff 指纹 + 文件清单一致）；
 - [ ] diff 范围合规，无产物/密钥；
 - [ ] 环境独立复现，版本已记录；
 - [ ] 验收标准逐条有 pass/fail 与命令证据；

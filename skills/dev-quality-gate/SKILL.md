@@ -13,7 +13,7 @@ whenToUse: 收到子 agent 产物或 Tester 报告、准备 commit、准备把�
 - 收到子 agent 的完成回报，需要判断产物能不能进下一步；
 - 收到 Tester 的验收报告，需要判定 PASS / FAIL 与严重度；
 - 准备 `git commit`、`git push` 或对用户宣布交付；
-- 准备把 `memory/task-status.md` 里的任务改成 ✅；
+- 准备把任务状态文件（`$DSH_HOME/.dsh-rsi-agent/dev/memory/task-status.md` 或交付正文里的同字段表格）里的任务改成 ✅；
 - 修复完成后准备重跑（必须走完整门，不是只跑失败那条）。
 
 ## 步骤

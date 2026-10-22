@@ -15,7 +15,35 @@ whenToUse: 开始编码前创建 worktree、提交代码、处理冲突或清理
 - 任务结束，需要回收目录与分支；
 - 发现当前目录里有别人的改动或未提交文件。
 
-## 一、创建 worktree
+## 零、开工前写权限预检（必须，30 秒）
+
+dsh 默认 `workspace-write` 沙箱只允许写当前工作目录。linked worktree 的 git 元数据在主仓库
+`.git/`，经常在工作目录之外；不预检就直接 `git worktree add` / `git switch -c` / `git commit`
+会得到 `Operation not permitted`，且 headless 模式没有审批通道，无法升级权限。
+
+```bash
+# 只在 Leader 启动 dsh 的那个 cwd 执行一次；子 agent 不要在自己的 cwd 重跑（会误判）。
+root=$(git rev-parse --show-toplevel)
+common=$(git rev-parse --git-common-dir)
+case "$common" in /*) ;; *) common="$root/$common" ;; esac
+common=$(cd "$(dirname "$common")" && pwd -P)/$(basename "$common")
+ws=$(pwd -P)          # dsh workspaceRoot = 启动 dsh 时的 cwd
+case "$common" in
+  "$ws"/*) echo "GIT_WRITE_OK" ;;
+  *) echo "GIT_WRITE_BLOCKED: git-common-dir=$common outside workspace=$ws" ;;
+esac
+```
+
+| 结果 | 处理 |
+|------|------|
+| `GIT_WRITE_OK` | 按下面的规范建 worktree / 提交 |
+| `GIT_WRITE_BLOCKED` | 不要反复重试，也不要尝试提权。二选一：<br>A. 让 Leader 以**包含主仓库与 worktree 的父目录**作为 dsh 的 cwd 重新启动（推荐，`workspaceRoot` 随 cwd 扩大）；<br>B. 受信任仓库下用 `DSH_PERMISSION_MODE=danger-full-access` 启动 dsh，并在交付里声明该风险。 |
+| 两者都不可行 | 切换「工作区交付」：不建 worktree、不 commit，交付 `git status --short` + `git diff` + 建议 commit message；Tester 按 `dev-role-tester` 的「工作区交付」路径验收。 |
+
+> 禁止在 `GIT_WRITE_BLOCKED` 下假装已建分支/已提交；也禁止把 `git switch -c` 失败后的重试当成进展。
+> 预检只做一次，结果写进任务卡第 5 项与第 10 项。
+
+## 一、创建 worktree（仅 `GIT_WRITE_OK` 时）
 
 ```bash
 cd <项目根目录>
@@ -150,6 +178,7 @@ git -C <项目根目录> branch -d <branch>                # 已合并用 -d
 
 ## 检查清单
 
+- [ ] 开工前已跑写权限预检，结果（`GIT_WRITE_OK` / `GIT_WRITE_BLOCKED`）与所选交付形态已记录；
 - [ ] worktree 路径符合 `<项目名>-<type>-<任务号>-<描述>`；
 - [ ] 分支名符合 `<type>/<任务号>-<描述>`，type 在允许列表内；
 - [ ] 起点 ref 明确，`git log -1` 已确认；
