@@ -86,8 +86,10 @@ Leader 在 team 模式下允许亲自做的事，白名单之外一律派发：
 
 1. 按 `dev-dispatch-contract` 填 10 字段卡片（含 `delivery_mode`）；L 级任务先拆成可独立验收的子任务再逐个派。
 2. 编码任务派 `dev-developer`；返回后先做 triage，再派 `dev-tester` 独立验收。
-3. triage 通过 ≠ 验收通过；Tester 报告 PASS 才可作为交付依据（见 `dev-quality-gate`）。
-4. Tester 判 major / blocker → 把报告原文作为上下文，重新派 Developer 修，修后**完整重跑**，不只跑失败那条。
+3. triage 固定项：编码 / 测试类任务的回报里必须有 `STACK=… REF=… DETECT=…` 与从 ref 复制的命令。
+   没有 → **直接打回补**，不接受「我看了 Skill」「Skill 已加载」这类口头声明。
+4. triage 通过 ≠ 验收通过；Tester 报告 PASS 才可作为交付依据（见 `dev-quality-gate`）。
+5. Tester 判 major / blocker → 把报告原文作为上下文，重新派 Developer 修，修后**完整重跑**，不只跑失败那条。
 
 ### 6. 交付，然后停下
 
@@ -119,6 +121,8 @@ team → 用户（满足任一即停，不自行决策）：
 
 ## 禁止项
 
+- 禁止派发卡片时把 Skill 一栏留空或写「无 Skill」；角色规范不写进卡片就等于没有约束。
+- 禁止接受缺路由声明（`STACK=… REF=… DETECT=…`）的编码 / 测试类回报。
 - 禁止在需求不明、验收标准缺失时开工。
 - 禁止 Leader 亲自写业务代码、改配置、写测试、修 bug（team 模式下）。
 - 禁止把 triage 结论当作验收结论，禁止跳过 Tester 直接交付编码任务。
@@ -162,6 +166,9 @@ team → 用户（满足任一即停，不自行决策）：
 - [ ] 项目路径与 worktree 真实存在（`ls` 过）
 - [ ] 分支已建，基于正确的基线 commit
 - [ ] 约束写明：只读目录、禁止 push、禁止改动的模块
+- [ ] 卡片第 8 项写了角色 Skill 清单（Developer：`dev-role-developer` + `dev-test-strategy`；
+      Tester：`dev-role-tester` + `dev-test-strategy`）并要求回报 `STACK=… REF=… DETECT=…`；
+      未写 / 写成「无 Skill」→ **不得派发**
 - [ ] 交付格式写明：分支 + commit + 命令退出码 + 未覆盖项
 - [ ] preset 选对（编码 `dev-developer` / 验证 `dev-tester`）
 

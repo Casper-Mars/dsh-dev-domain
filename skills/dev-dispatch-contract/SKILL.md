@@ -48,7 +48,12 @@ whenToUse: 准备调用 subagent 派发任务之前，或收到子 agent 回报�
    - [ ] AC2 `pnpm typecheck` exit 0
    - [ ] AC3 `pnpm test` exit 0，41 条不回退
 7. 约束：只改 skills/<name>/SKILL.md；禁止 push；禁止改 src/ tests/ templates/；frontmatter 只允许单行 key: value
-8. 相关关键词与 Skill：Wiki 检索「固件 skill / 派发契约」；本任务无需加载业务 Skill
+8. 相关关键词与 Skill（必填门禁）：
+   - 子 agent 开工第一件事：`skill` 加载 <角色 Skill 清单>，然后 `read references/<stack>.md`
+     并回报 `STACK=… REF=… DETECT=…`
+   - 派 Developer：`dev-role-developer` + `dev-test-strategy`
+   - 派 Tester：`dev-role-tester` + `dev-test-strategy`
+   - 关键词：Wiki 检索「固件 skill / 派发契约」
 9. 交付格式：分支 + commit hash；每条命令 + 退出码；AC 逐条证据；未覆盖项与风险
 10. 交付形态与环境限制：`delivery_mode: commit|workspace`；不可写路径（如主仓库 `.git/`）、
     无审批通道、网络/凭据限制、必须降级的命令
@@ -58,7 +63,11 @@ whenToUse: 准备调用 subagent 派发任务之前，或收到子 agent 回报�
 
 - 第 6 项每条都要能被一条命令或一次文件检查判定，禁止「体验良好」「符合规范」。
 - 第 7 项必须显式写「禁止 push」，否则子 agent 可能自行推送。
-- 第 8 项没有可加载的 Skill 时写「无」，不要留空导致子 agent 自行发挥。
+- 第 8 项是**派发门禁**，不是备注：必须写出角色 Skill 清单与路由回报要求，原样成句：
+  「子 agent 开工第一件事：`skill` 加载 <清单>，然后 `read references/<stack>.md` 并回报
+  `STACK=… REF=… DETECT=…`」。
+- 第 8 项写「无」「无 Skill」或留空 = **卡片不合格，禁止派发**（角色规范只有在被加载后才生效，
+  不写进卡片就等于没有约束）。
 - 第 10 项必须显式写 `delivery_mode`；`workspace` 时还要写清「Tester 如何取得交付物」（复制路径/忽略目录）。
 - 路径写绝对路径；相对路径在子 agent 的 cwd 里可能解析不到。
 
@@ -100,6 +109,7 @@ subagent({
 - 禁止派发后 `sleep` / 轮询 / 反复查状态；也禁止中途改同一批文件。
 - 禁止让子 agent 自行决定验收标准、自行放宽断言、自行 push。
 - 禁止在子 agent 回报「完成」后不做 triage 就转交 Tester 或直接交付。
+- 禁止卡片第 8 项写「无 Skill」/留空；编码与测试类任务必须写角色 Skill 清单 + 路由声明要求。
 - 禁止把 Tester 报告当结论而不看证据（报告也可能错）。
 
 ### Developer 边界（写进卡片第 7 项「约束」）
@@ -158,6 +168,8 @@ subagent({
 - [ ] 分支已建，基线 commit 写进卡片
 - [ ] 约束写明只读目录、禁止 push、禁止改动的模块
 - [ ] 交付格式写明分支 + commit + 命令退出码 + 未覆盖项
+- [ ] 第 8 项已写角色 Skill + `dev-test-strategy` 清单，且带 `STACK=… REF=… DETECT=…` 路由回报要求
+      （未写 = 卡片不合格，不派发）
 - [ ] 第 10 项 `delivery_mode` 已确认（`workspace` 时写明 Tester 的取物方式）
 - [ ] `agent_preset` 与任务类型匹配，`cwd` 指向 worktree
 - [ ] 只装了一个可独立验收的任务
@@ -167,5 +179,6 @@ subagent({
 - [ ] AC 逐条对照证据，而不是看「已完成」三个字
 - [ ] `git status` / `git diff --stat` 已看，改动在允许范围内
 - [ ] 命令与退出码齐全，关键一条已复现
+- [ ] 回报里有 `STACK=… REF=… DETECT=…` 与复制自 ref 的命令；只有「我看了 Skill」不算
 - [ ] 未覆盖项与风险已列出，没有「应该没问题」
 - [ ] 已决定下一步：进 Tester / 打回 / 升级给用户

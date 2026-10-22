@@ -21,6 +21,19 @@ whenToUse: 以 Developer 身份接到 Leader 派发的编码任务时，先读�
 - 不做：拆解需求、改验收标准、派发子 agent、宣布「验证通过」；
 - 卡片信息不足时**停下来问**，不要用默认值补齐关键信息。
 
+## 步骤 0：加载角色规范（没做 = 未开工）
+
+**做什么**
+
+1. 开工第一件事：用 `skill` 工具加载 `dev-role-developer` 与 `dev-test-strategy`。
+   没加载就动手 = 视为未开工，产物一律无效。
+2. 按 `dev-test-strategy` 的检测表 `read` 对应 `references/<stack>.md`，后续命令与断言从 ref 复制，
+   不凭记忆写。
+3. 第一条回报里输出路由声明：`STACK=<栈> REF=<references/xxx.md> DETECT=<命中的检测信号>`。
+
+**产物**：一条可核对的路由声明。Leader / Tester 在回报里看不到 `STACK=… REF=… DETECT=…`
+（或看不到从 ref 复制的命令）即视为未开工，直接打回。
+
 ## 步骤 1：任务对齐
 
 **做什么**
@@ -69,7 +82,7 @@ git status --short && git log --oneline -1
    （`.nvmrc` / `go.mod` / `.python-version` / `packageManager`）；
 4. 若企业环境规范（wiki）有要求，以规范为准。
 
-**硬要求**：动手前必须 `read` 对应 `references/<stack>.md`，并在回报里贴出 `STACK=… REF=…`
+**硬要求**：动手前必须 `read` 对应 `references/<stack>.md`，并在回报里贴出 `STACK=… REF=… DETECT=…`
 与从 ref 复制的命令；只加载 `dev-test-strategy` 不算完成路由。没读 ref、没抄命令 = 本步未完成，Leader/Tester 应打回。
 
 **命令（示例，具体以 reference 为准）**
@@ -158,7 +171,8 @@ git log --oneline -1
 - [ ] 卡片信息完整，歧义已澄清；
 - [ ] 已确认 `delivery_mode` 与写权限预检结果（`workspace` 时交付含 `git diff` 与「未提交 + 原因」）；
 - [ ] worktree 独立，分支命名合规，基点正确（`workspace` 形态下改为基线 commit 已记录）；
-- [ ] 已按栈读取对应 reference，回报里贴了 `STACK=… REF=…` 与复制自 ref 的命令；
+- [ ] 开工第一件事已 `skill` 加载 `dev-role-developer` + `dev-test-strategy`（未加载 = 未开工）；
+- [ ] 已按栈读取对应 reference，回报里贴了 `STACK=… REF=… DETECT=…` 与复制自 ref 的命令；
 - [ ] 改动范围与卡片一致，无越界文件；
 - [ ] typecheck / test / build 全绿，退出码已记录；
 - [ ] commit message 合规，必要时已拆 commit；

@@ -15,6 +15,17 @@ whenToUse: 以 Tester 身份接到验证任务，或需要对某个 commit 出�
 - 需要判定「这个 commit 是否满足验收标准」；
 - 上一轮验证 fail，需要复核修复结果。
 
+## 步骤 0：加载角色规范（没做 = 未开工）
+
+**做什么**
+
+1. 开工第一件事：用 `skill` 工具加载 `dev-role-tester` 与 `dev-test-strategy`。
+   没加载就动手 = 视为未开工，验收结论一律无效。
+2. `read` 对应 `references/<stack>.md`，复跑命令与断言从 ref 复制，不凭记忆写。
+3. 第一条回报里输出路由声明：`STACK=<栈> REF=<references/xxx.md> DETECT=<命中的检测信号>`。
+
+**产物**：一条可核对的路由声明；看不到 `STACK=… REF=… DETECT=…` 的验收报告直接打回。
+
 ## 步骤 1：拉取交付物
 
 **做什么**
@@ -50,7 +61,7 @@ git -C <worktree> diff --name-only <base>..<commit>
 
 1. 用交付物声明的方式安装依赖，**不借用**开发者已装好的目录（`commit` 形态新建 worktree，
    `workspace` 形态复制到 `/tmp/verify-*` 后安装）；
-2. 判断技术栈并读 `dev-test-strategy` → `references/<stack>.md`；
+2. 判断技术栈并读 `dev-test-strategy` → `references/<stack>.md`，回报 `STACK=… REF=… DETECT=…`；
 3. 记录环境信息：OS、node/go/python 版本、依赖安装命令与结果；
 4. 拉起所需服务，确认端口/健康检查可用。
 
@@ -124,6 +135,10 @@ git -C <worktree> diff <base>..<commit> | rg -n "\.skip|\.only|xit\(|@pytest.mar
 残余风险：<...>
 ```
 
+**硬要求**：验收结论必须包含「我用了哪些独立断言 / 从 ref 复制的命令」——至少一条独立断言
+（不直接复用 Developer 的验证脚本），并标明出自哪个 `references/<stack>.md`。只写 exit 0 不写命令
+来源 = 结论无效。
+
 **分级标准**
 
 | 分级 | 判据 |
@@ -144,6 +159,8 @@ git -C <worktree> diff <base>..<commit> | rg -n "\.skip|\.only|xit\(|@pytest.mar
 
 ## 检查清单
 
+- [ ] 已 `skill` 加载 `dev-role-tester` + `dev-test-strategy`，回报含 `STACK=… REF=… DETECT=…`；
+- [ ] 结论写明了「用了哪些独立断言 / 从 ref 复制的命令」，而不是只报 exit 0；
 - [ ] 被验对象含分支 + commit + base，工作区干净（`workspace` 形态改为 diff 指纹 + 文件清单一致）；
 - [ ] diff 范围合规，无产物/密钥；
 - [ ] 环境独立复现，版本已记录；
