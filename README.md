@@ -114,12 +114,35 @@ git -C "$DSH_HOME/.dsh-rsi-agent/dev/assets" log --oneline
 （共 10 个领域 Skill，另加 core 自带的 3 个固件 Skill）；3 个 preset 均无 `broken` 诊断；
 `agent_preset` 枚举为 `dev-developer` / `dev-tester`；子 agent 的 system prompt 只含自己的角色措辞。
 
+#### 自动化自检：`pnpm verify:install`
+
+上面四条手工命令已固化为脚本 `scripts/verify-install.mjs`，安装后（或 CI 干净 checkout）
+一次跑完 15 项检查：
+
+```bash
+DSH_HOME=/tmp/dsh-home pnpm verify:install       # 已安装态：读 $DSH_HOME/.dsh-rsi-agent/dev/assets/skills
+pnpm verify:install                              # 未设置 DSH_HOME 时回退仓库 templates/
+node scripts/verify-install.mjs --assets <资产根> --firmware <固件根>
+```
+
+- 输出 **15 行** `PASS` / `FAIL`：7 个可进化种子（`<资产根>/<name>/SKILL.md`）、
+  5 个 references（`<资产根>/dev-test-strategy/references/<stack>.md`）、
+  3 个固件（`<固件根>/<name>/SKILL.md`）；
+- 任一 `FAIL` 会打印可定位路径并以**退出码 1** 结束，可直接用作门禁；
+- 资产根优先级：`--assets` > `--home` > 环境变量 `DSH_HOME` > 仓库 `templates/`。
+  前三者**任一显式给出**（`DSH_HOME` 非空即算）而目录不存在时，以**退出码 2** 报错并
+  打印该路径，**不回退**——安装未完成必须显式失败，而不是被判「全 PASS」；
+  只有三者都没有时才回退仓库 `templates/`，此时报告多一行 `# 仓库模板回退（…）：<路径>`；
+- 参数：`--assets <dir>` 直接指定资产根；`--home <dir>` 指定 dsh home（脚本自动拼
+  `.dsh-rsi-agent/dev/assets/skills`）；`--firmware <dir>` 指定固件根（默认包根 `skills/`）。
+
 ## 开发
 
 ```bash
 pnpm typecheck     # tsc --noEmit
-pnpm test          # vitest（45 个用例：契约 / 种子 / references / 校验 / 固件注册 / 真实 AgentHost 集成）
+pnpm test          # vitest（55 个用例：契约 / 种子 / references / 校验 / 固件注册 / 真实 AgentHost 集成 / 安装后自检）
 pnpm build         # 编译到 dist-server/ 并复制 cordis.patch.yml
+pnpm verify:install # 15 项安装后自检（DSH_HOME 已设置时校验安装态资产）
 ```
 
 改种子请先改 `templates/<name>/`（含 `references/*.md`），再同步 `src/seeds.ts`——
