@@ -1,6 +1,7 @@
 # dsh-dev-domain
 
-开发领域包（dsh）：为 [`dsh-rsi-agent`](../dsh-rsi-agent) 提供 **Dev Leader 人设**、**10 个 Skill**（3 个固件 + 7 个可进化种子）与 **3 个 agent preset**（Leader / Developer / Tester）。
+开发领域包（dsh）：为 [`dsh-rsi-agent`](../dsh-rsi-agent) 提供 **Dev Leader 人设**、**10 个 Skill**
+（3 个固件 + 7 个可进化种子）与 **3 个 agent preset**（Leader / Developer / Tester）。
 
 ## 设计边界
 
@@ -43,21 +44,29 @@
 
 前置：dsh `0.2.1-rc.2`、Node ≥ 22、pnpm 11。
 
-`dsh-rsi-agent` 尚未发布到 npm，因此**必须先把本仓库装好并编译**（`link:` 安装不会为被链接包安装依赖，
-profile 端的 `main` 指向 `dist-server/index.js`，不编译则加载失败）：
+`dsh-rsi-agent` 尚未发布到 npm，因此**必须先把 core 与本仓库都编译**（`link:` 安装不会为被链接包
+安装依赖，profile 端的 `main` 指向 `dist-server/index.js`，不编译则加载失败）：
 
 ```bash
+cd /path/to/dsh-rsi-agent
+pnpm install && pnpm build      # 产出 dist-server/
+
 cd /path/to/dsh-dev-domain
-pnpm install        # workspace override 把 dsh-rsi-agent 链到 ../dsh-rsi-agent
-pnpm build          # 产出 dist-server/（含 cordis.patch.yml）
+pnpm install                    # workspace override 把 dsh-rsi-agent 链到 ../dsh-rsi-agent
+pnpm build                      # 产出 dist-server/（含 cordis.patch.yml）
 ```
 
 ### 装进已有 profile（推荐）
 
 ```bash
-dsh plugin --profile web add /path/to/dsh-dev-domain
+dsh plugin --profile web add link:/path/to/dsh-dev-domain
+cd "$DSH_HOME/profiles/web" && pnpm add link:/path/to/dsh-rsi-agent
 dsh web
 ```
+
+第二条命令是必需的：pnpm 不会为 `link:` 依赖安装它自己的依赖，profile 里必须先有
+`dsh-rsi-agent` 才能解析 bundle patch 插入的 `rsi-agent` 行。这里用 `pnpm add` 而不是
+`dsh plugin add`，是因为后者会把 core 也追加为**第二个 bundle**，导致 `rsi-agent` 重复插入。
 
 ### 装进全新 profile
 
@@ -65,11 +74,21 @@ dsh web
 `rsi-agent` + `dev-domain` + 3 个 preset 一起插进组合树：
 
 ```bash
-DSH_HOME=/tmp/dsh-dev dsh plugin --profile dev add /path/to/dsh-dev-domain
-DSH_HOME=/tmp/dsh-dev dsh --profile dev --dump-config | grep -E "dev-domain|preset-dev-"
+export DSH_HOME=/tmp/dsh-dev
+dsh plugin --profile dev add link:/path/to/dsh-dev-domain
+cd "$DSH_HOME/profiles/dev" && pnpm add link:/path/to/dsh-rsi-agent
+dsh --profile dev --dump-config | grep -E "dev-domain|preset-dev-"
 ```
 
 > 该 profile 只有 base 能力、没有 UI app；日常使用请走上面「已有 profile」的方式。
+
+### 发布到 npm 后
+
+```bash
+dsh plugin --profile web add dsh-dev-domain
+```
+
+`dependencies.dsh-rsi-agent` 已声明 `^0.1.0`，正常依赖解析会一并装上 core，无需手动补第二条命令。
 
 ### 安装后自检
 
@@ -84,11 +103,15 @@ ls "$DSH_HOME/.dsh-rsi-agent/dev/assets/skills"
 git -C "$DSH_HOME/.dsh-rsi-agent/dev/assets" log --oneline
 ```
 
+预期：`agentHost.active.id === 'dev'`、`agentHost.active.toolNames === []`；3 个 preset
+均无 `broken` 诊断；`agent_preset` 枚举为 `dev-developer` / `dev-tester`；子 agent 的
+system prompt 只含自己的角色措辞。
+
 ## 开发
 
 ```bash
 pnpm typecheck     # tsc --noEmit
-pnpm test          # vitest（契约 / 种子 / 校验 / 真实 AgentHost 集成）
+pnpm test          # vitest（27 个用例：契约 / 种子 / 校验 / 真实 AgentHost 集成）
 pnpm build         # 编译到 dist-server/ 并复制 cordis.patch.yml
 ```
 
