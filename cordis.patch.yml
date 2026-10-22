@@ -24,7 +24,7 @@
       # 坑：这个 default 只影响 registry 自己的解析，dsh-tool-subagent 用的是它自己
       # config.agentPreset（0.2.1-rc.2 lib/index.js:252），两处（含顶层的同名字段）必须一致。
       config:
-        default: dev-tester
+        default: dev-leader
 
     # Leader 主会话的人设由本领域 pack 提供（agentHost.install）：
     # 可进化资产、调度纪律与质量红线都在 pack 的 persona / firmware skill 里。
