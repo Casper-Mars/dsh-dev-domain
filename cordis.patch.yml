@@ -1,0 +1,120 @@
+# dsh-dev-domain bundle patch —— 领域包自带「core + domain + presets」三层
+#
+# 只需 `dsh plugin --profile <p> add <本包>`：pnpm 装好本包后，bundle patch 一次
+# 插入 rsi-agent、本领域与 3 个 agent preset，profile 里同时得到 agentHost
+# （提供方）、dev 领域（人设 + 资产 + 工具面）与子 agent 组合。
+#
+# id/name/inject 必须与两边 src/plugin.ts 逐项一致。
+
+- insert:
+    - id: rsi-agent
+      name: dsh-rsi-agent
+      inject: ['tools', 'skills', 'fs']
+
+    - id: dev-domain
+      name: dsh-dev-domain
+      inject: ['agentHost']
+
+    - id: agent-preset-registry
+      name: '@deepseek-ai/dsh-agent-preset-registry'
+      config:
+        default: dev-developer
+
+    # Leader 主会话的人设由本领域 pack 提供（agentHost.install）：
+    # 可进化资产、调度纪律与质量红线都在 pack 的 persona / firmware skill 里。
+    # preset 只负责子 agent，并通过 `complete: true` 切断对 Leader 人设的继承。
+    - id: preset-dev-leader
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: dev-leader
+        name: Leader
+        description: 开发领域调度者：拆解需求、派发子任务、验收产出。
+        order: 10
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              prefix: |
+                你是 Dev Leader。你只做四件事：拆解需求、派发子任务、验收产出、向用户汇报。
+                你绝不自己写业务代码，也绝不自己执行测试；需要动手时使用 subagent 工具派发。
+                回复使用中文，结论先行，不啰嗦。
+              complete: true
+          - id: tool-fs
+            name: '@deepseek-ai/dsh-tool-fs'
+          - id: tool-bash
+            name: '@deepseek-ai/dsh-tool-bash'
+          - id: tool-skill
+            name: '@deepseek-ai/dsh-tool-skill'
+          - id: tool-todo
+            name: '@deepseek-ai/dsh-tool-todo'
+            config:
+              allowParallelInProgress: false
+          - id: tool-subagent
+            name: '@deepseek-ai/dsh-tool-subagent'
+            config:
+              provider: spawn
+              toolName: subagent
+              agentPreset: dev-developer
+              allowedAgentPresets: [dev-developer, dev-tester]
+              maxDepth: 1
+
+    - id: preset-dev-developer
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: dev-developer
+        name: Developer
+        description: 编码执行者：只做理解任务、创建 worktree、编码、自测、交付。
+        order: 20
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              prefix: |
+                你是 Developer 子 agent。只做编码与自测，不拆解需求、不调度他人。
+                动手前先读规范；交付前必须自测。回复使用中文，只汇报做了什么、证据与风险。
+              complete: true
+          - id: tool-fs
+            name: '@deepseek-ai/dsh-tool-fs'
+          - id: tool-bash
+            name: '@deepseek-ai/dsh-tool-bash'
+          - id: tool-skill
+            name: '@deepseek-ai/dsh-tool-skill'
+          - id: tool-todo
+            name: '@deepseek-ai/dsh-tool-todo'
+            config:
+              allowParallelInProgress: false
+
+    - id: preset-dev-tester
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: dev-tester
+        name: Tester
+        description: 验证执行者：只做复现、验收与报告，不改业务代码。
+        order: 30
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              prefix: |
+                你是 Tester 子 agent。只做验证与报告，不改业务代码、不重新设计需求。
+                每条验收标准都要给出可复现的命令与退出码。回复使用中文，结论先行。
+              complete: true
+          - id: tool-fs
+            name: '@deepseek-ai/dsh-tool-fs'
+          - id: tool-bash
+            name: '@deepseek-ai/dsh-tool-bash'
+          - id: tool-skill
+            name: '@deepseek-ai/dsh-tool-skill'
+          - id: tool-todo
+            name: '@deepseek-ai/dsh-tool-todo'
+            config:
+              allowParallelInProgress: false
+
+# 顶层补丁：基座 bundle 已声明 tool-subagent，这里只覆盖 config（沿用 spike 已验证写法）。
+- id: tool-subagent
+  config:
+    provider: spawn
+    toolName: subagent
+    agentPreset: dev-developer
+    allowedAgentPresets: [dev-developer, dev-tester]
+    maxDepth: 1

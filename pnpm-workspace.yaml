@@ -1,0 +1,12 @@
+packages:
+  - .
+
+# M0 本地联调：manifest 里 dsh-rsi-agent 用发布态版本 ^0.1.0，
+# 本地把它指到同目录的 core 仓库（worktree 场景下由 worktrees/dsh-rsi-agent
+# 符号链接指向真实的 dsh-rsi-agent 仓库）。
+# 发布领域包时该 override 不随包分发，profile 端会按 dependencies 正常解析。
+overrides:
+  dsh-rsi-agent: link:../dsh-rsi-agent
+
+allowBuilds:
+  esbuild: true
