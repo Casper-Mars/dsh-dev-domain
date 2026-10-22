@@ -328,7 +328,8 @@ describe('Leader 人设与子 agent 隔离', () => {
     const leaderBlock = patch.split('preset-dev-leader')[1].split('preset-dev-developer')[0] as string
     expect(leaderBlock).toContain('id: tool-subagent')
 
-    // 子 agent preset 不挂 subagent（maxDepth=1 下也无法再派发）。
+    // 子 agent preset 不**额外挂载** subagent；顶层补丁会让它在子 preset 的 scope 中可见，
+    // 真正拦住递归的是 maxDepth: 1。
     const developerBlock = patch.split('preset-dev-developer')[1].split('preset-dev-tester')[0] as string
     const testerBlock = patch.split('preset-dev-tester')[1].split('\n# 顶层补丁')[0] as string
     expect(developerBlock).not.toContain('tool-subagent')

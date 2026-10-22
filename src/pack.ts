@@ -14,7 +14,6 @@
  *   - `bootstrap` 必须**同步**，并且只调用**一次** `writer.register`，
  *     这样 core 只会产生一个 commit。
  */
-import { readFileSync } from 'node:fs'
 import type {
   AssetSpec,
   AssetType,
@@ -22,6 +21,7 @@ import type {
   DomainPack,
   FirmwareSkill,
 } from 'dsh-rsi-agent'
+import { loadFirmwareMarkdown, SKILL_FILE } from './firmware.js'
 import { SEED_SKILLS } from './seeds.js'
 
 /* ------------------------------------------------------------------ *
@@ -32,8 +32,6 @@ import { SEED_SKILLS } from './seeds.js'
 const SKILL_TYPE = 'skill'
 /** SKILL 资产前缀（相对资产根目录）。 */
 const SKILL_PREFIX = 'skills/'
-/** SKILL 文件名（上游 skill-filesystem provider 只认这个文件名）。 */
-const SKILL_FILE = 'SKILL.md'
 /** 种子资产的统一提交说明（一次 register ⇒ 一个 commit）。 */
 const SEED_MESSAGE = 'seed dev skills (domain bootstrap)'
 
@@ -162,23 +160,12 @@ const ASSET_TYPES: readonly AssetType[] = [
  * ------------------------------------------------------------------ */
 
 /**
- * 读取固件 SKILL 正文。
+ * 3 个固件 Skill：name 必须 kebab-case，且不得占用 core 保留名。
  *
- * 路径相对 `import.meta.url`：源码态 `src/pack.ts` → `<包根>/skills/`；
- * 编译态 `dist-server/pack.js` → 同样是 `<包根>/skills/`（`files` 已包含
- * `skills/`），因此两种形态共用一条路径语义。
+ * 声明本身仍是契约校验与文档的真源；**运行时注册**由 `src/plugin.ts` 用
+ * `ctx.skills.register()` 完成（core 只消费 `firmwareSkills` 做重名校验，
+ * 不注册这里的 markdown）。
  */
-function loadFirmwareMarkdown(name: string): string {
-  const url = new URL(`../skills/${name}/${SKILL_FILE}`, import.meta.url)
-  try {
-    return readFileSync(url, 'utf8')
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error)
-    throw new Error(`[dev] 无法读取固件 SKILL "skills/${name}/${SKILL_FILE}"：${reason}`)
-  }
-}
-
-/** 3 个固件 Skill：name 必须 kebab-case，且不得占用 core 保留名。 */
 const FIRMWARE_SKILLS: readonly FirmwareSkill[] = [
   {
     name: 'dev-leader-rules',

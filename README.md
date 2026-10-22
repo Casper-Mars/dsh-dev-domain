@@ -18,8 +18,9 @@
 ├─ package.json              # dsh.bundle.patch 指向 cordis.patch.yml；files 含 skills/
 ├─ src/
 │  ├─ index.ts               # 包入口
-│  ├─ plugin.ts              # Cordis 插件（name / inject / apply）
-│  ├─ pack.ts                # DomainPack：人设、资产类型与校验、固件 Skill、bootstrap
+│  ├─ plugin.ts              # Cordis 插件（name / inject / apply；固件 Skill 静态注册 + 反注册）
+│  ├─ pack.ts                # DomainPack：人设、资产类型与校验、固件 Skill 声明、bootstrap
+│  ├─ firmware.ts            # 固件 SKILL 路径 / frontmatter 解析 / SkillRegistration 构造
 │  └─ seeds.ts               # 7 个可进化 Skill 的种子正文（与 templates 逐字节一致）
 ├─ skills/                   # 固件 Skill（随包发布、只读、不参与进化）
 │  ├─ dev-leader-rules/
@@ -35,6 +36,7 @@
 │  └─ dev-retro/
 ├─ scripts/copy-assets.mjs   # 把 cordis.patch.yml 等资源复制进 dist-server/
 ├─ tests/pack.spec.ts        # 契约 / bootstrap / 校验 / 真实 AgentHost 集成
+├─ tests/firmware-registration.spec.ts  # 固件 Skill 注册 / 查重 / 卸载反注册 / 降级
 ├─ tsconfig.json / tsconfig.server.json / vitest.config.ts
 ├─ pnpm-workspace.yaml       # overrides: dsh-rsi-agent → link:../dsh-rsi-agent
 └─ .npmrc
@@ -103,15 +105,16 @@ ls "$DSH_HOME/.dsh-rsi-agent/dev/assets/skills"
 git -C "$DSH_HOME/.dsh-rsi-agent/dev/assets" log --oneline
 ```
 
-预期：`agentHost.active.id === 'dev'`、`agentHost.active.toolNames === []`；3 个 preset
-均无 `broken` 诊断；`agent_preset` 枚举为 `dev-developer` / `dev-tester`；子 agent 的
-system prompt 只含自己的角色措辞。
+预期：`agentHost.active.id === 'dev'`、`agentHost.active.toolNames === []`；`skills.list()` 含
+3 个固件 Skill（`dev-leader-rules` / `dev-dispatch-contract` / `dev-quality-gate`）与 7 个种子
+（共 10 个领域 Skill，另加 core 自带的 3 个固件 Skill）；3 个 preset 均无 `broken` 诊断；
+`agent_preset` 枚举为 `dev-developer` / `dev-tester`；子 agent 的 system prompt 只含自己的角色措辞。
 
 ## 开发
 
 ```bash
 pnpm typecheck     # tsc --noEmit
-pnpm test          # vitest（27 个用例：契约 / 种子 / 校验 / 真实 AgentHost 集成）
+pnpm test          # vitest（41 个用例：契约 / 种子 / 校验 / 固件注册 / 真实 AgentHost 集成）
 pnpm build         # 编译到 dist-server/ 并复制 cordis.patch.yml
 ```
 
@@ -132,8 +135,19 @@ pnpm build         # 编译到 dist-server/ 并复制 cordis.patch.yml
 | 可进化 | `dev-role-tester` | Tester 角色规范 |
 | 可进化 | `dev-retro` | 复盘与单变量改进 |
 
-固件 Skill 随包发布、由 `firmwareSkills` 注入；7 个可进化 Skill 由 `assets.bootstrap`
-落到 `assets/skills/`，之后可由进化引擎改写。
+固件 Skill 随包发布：`pack.firmwareSkills` 是声明（契约校验 / 文档的真源），运行时由
+`src/plugin.ts` 在 `agentHost.install()` 之后用 `ctx.skills.register()` **静态注册**
+（core 只把 `firmwareSkills` 用于重名冲突校验，不注册其中的 markdown）；领域卸载时反注册。
+7 个可进化 Skill 由 `assets.bootstrap` 落到 `assets/skills/`，之后可由进化引擎改写。
+
+## 已知限制
+
+- `dsh --profile <p> --dump-config-schema` 对含嵌套 `plugins` 的 preset 会在 stderr 报
+  `unrecognized Loader tree carrier`（3 个 preset 各一条）并以退出码 1 结束；schema 本身
+  仍会完整打印到 stdout。spike 同样表现，属 dsh 自身限制；`--dump-config` 正常（退出码 0），
+  日常自检请用后者。
+- 自检脚本里 `agentHost.active.toolNames` 仍为空数组（本领域零工具），文件 / 命令 /
+  技能 / 待办 / 子 agent 能力全部来自 preset 组合的 dsh 内置插件。
 
 ## 3 个 preset
 
@@ -149,6 +163,9 @@ pnpm build         # 编译到 dist-server/ 并复制 cordis.patch.yml
 - `allowedAgentPresets: [dev-developer, dev-tester]`、`maxDepth: 1` —— Leader 只能派给
   Developer / Tester，子 agent 无法再向下派发（因此 `agent_preset` 枚举只有这两项，
   `dev-leader` 仍注册在 registry 里，但不作为可派发目标）；
+- **关于子 preset 的 `subagent`**：Developer / Tester 的 preset 里**不额外挂载**
+  `subagent`，但顶层补丁（`tool-subagent`）会让该工具在子 preset 的 scope 中可见；
+  真正拦住递归的是 `maxDepth: 1`，而不是「工具不存在」。
 - 每个 preset 的 `persona` 都是 `complete: true`，子 agent 的 system prompt 只保留自己的
   措辞，不含 Leader 的任何规则。
 
