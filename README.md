@@ -68,6 +68,7 @@ pnpm build                      # 产出 dist-server/（含 cordis.patch.yml）
 ### 装进已有 profile（推荐）
 
 ```bash
+export DSH_HOME="${DSH_HOME:-$HOME/.dsh}"   # 未设置时 dsh 默认在此
 dsh plugin --profile web add link:/path/to/dsh-dev-domain
 cd "$DSH_HOME/profiles/web" && pnpm add link:/path/to/dsh-rsi-agent
 dsh web
@@ -285,9 +286,9 @@ references 随种子同批注册（同一个 commit）；`validate` 只放行 `s
 - 自检脚本里 `agentHost.active.toolNames` 仍为空数组（本领域零工具），文件 / 命令 /
   技能 / 待办 / 子 agent 能力全部来自 preset 组合的 dsh 内置插件。
 - `await agentHost.skillProviderReady` 只表示 provider 已就绪，不保证 `skills.list()` 立刻
-  包含全部种子：web profile 下首次 `list()` 可能只有固件条目（3 条），约 1s 后才有 13 条
-  （`rsi-skills` 首轮扫描滞后）。断言请**轮询到条数稳定**（例如连续两次读到 13 条）再判定，
-  不要只取首次结果。
+  包含全部种子：web profile 下首次 `list()` 实测 **6 条**（3 个 core 固件 + 3 个领域固件），
+  约 1s 后才是 13 条（`rsi-skills` 首轮扫描滞后）。断言请**轮询到条数稳定**（例如连续两次
+  读到 13 条）再判定，不要只取首次结果。
 
 ## 3 个 preset
 

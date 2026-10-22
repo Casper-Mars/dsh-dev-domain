@@ -76,7 +76,7 @@
 2. 同步 `src/seeds.ts` 中 `dev-test-strategy` 的 `references` 数组（`path` 形如 `references/go.md`，`content` 为全文）；
 3. 新增文件时同步 `scripts/verify-install.mjs` 的 `EXPECTED_REFERENCE_STACKS`（检查项总数随之变化）；
 4. 同步数量断言：`tests/pack.spec.ts` 的 references 条数（当前 5）、
-   `tests/verify-install.spec.ts` 的 15 / 14 常量；
+   `tests/verify-install.spec.ts` 的两个字面量断言：`toBe(15)` 与 `toHaveLength(14)`；
 5. `pnpm test` + `pnpm verify:install`。
 
 ### 配方 C：新增一个可进化 Skill
@@ -85,14 +85,16 @@
 2. 在 `src/seeds.ts` 的 `SEED_SKILLS` 增加条目；
 3. 同步 `scripts/verify-install.mjs` 的 `EXPECTED_SEED_SKILLS`（检查项总数会从 15 变化）；
 4. 同步数量断言：`tests/pack.spec.ts`（当前 12 个资产 / 7 个 SKILL / 5 个 references）与
-   `tests/verify-install.spec.ts`（当前 15 / 14 常量）；
+   `tests/verify-install.spec.ts`（当前为 `toBe(15)` 与 `toHaveLength(14)` 两个字面量断言）；
 5. 同步 README 的 Skill 表与「运行态 13 条」的分层说明；
 6. `pnpm typecheck && pnpm test && pnpm build && pnpm verify:install`。
 
 ### 配方 D：改 preset / 默认 preset
 
 1. 改 `cordis.patch.yml`；
-2. `pnpm test`（会校验：3 个 preset 都 `complete: true`、默认 preset 不是 `dev-developer`、`tool-subagent` 恰好两处、`maxDepth: 1`）；
+2. `pnpm test`（会校验：3 个 preset 都 `complete: true`；默认 preset 不是 `dev-developer` —— 同时覆盖
+   `agent-preset-registry.default` 与**两处** `tool-subagent.agentPreset`（Leader preset 内 + 顶层补丁）；
+   `tool-subagent` 恰好两处、`maxDepth: 1`）；
 3. 用全新 `DSH_HOME` 安装一次，跑 `dsh --profile <p> --dump-config` 核对组合树（不要用 `--dump-config-schema`，见常见坑）；
 4. 同步 README 的「3 个 preset」小节。
 

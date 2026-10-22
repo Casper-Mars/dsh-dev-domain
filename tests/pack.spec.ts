@@ -76,6 +76,31 @@ function readRepoFile(relative: string): string {
   return readFileSync(new URL(`../${relative}`, import.meta.url), 'utf8')
 }
 
+/** 取 YAML 里每个 `- id: <id>` 列表项到下一个同级/更外层列表项之间的文本。 */
+function configBlocks(yaml: string, id: string): string[] {
+  const blocks: string[] = []
+  let current: string[] | undefined
+  let currentIndent = 0
+  for (const line of yaml.split('\n')) {
+    const item = /^(\s*)-\s+id:\s*(\S+)/.exec(line)
+    if (item !== null) {
+      const indent = (item[1] as string).length
+      if (current !== undefined && indent <= currentIndent) {
+        blocks.push(current.join('\n'))
+        current = undefined
+      }
+      if ((item[2] as string) === id) {
+        current = [line]
+        currentIndent = indent
+        continue
+      }
+    }
+    current?.push(line)
+  }
+  if (current !== undefined) blocks.push(current.join('\n'))
+  return blocks
+}
+
 /** 读取固件 Skill 正文。 */
 function readFirmware(name: string): string {
   return readRepoFile(`skills/${name}/SKILL.md`)
@@ -424,6 +449,24 @@ describe('Leader 人设与子 agent 隔离', () => {
     // schema 里 default 是 required，不能删；漏传 agent_preset 时只允许落到只读的 tester。
     expect(block).toMatch(/default:\s*dev-tester\b/)
     expect(block).not.toMatch(/default:\s*dev-developer\b/)
+  })
+
+  it('cordis.patch.yml：两处 tool-subagent 的 agentPreset 都是 dev-tester', () => {
+    const patch = readRepoFile('cordis.patch.yml')
+    const blocks = configBlocks(patch, 'tool-subagent')
+    // Leader preset 内 + 顶层补丁，共两处，缺任何一处都会漏掉一条安装路径。
+    expect(blocks, '应恰好解析出 2 个 tool-subagent 配置块').toHaveLength(2)
+
+    for (const [index, block] of blocks.entries()) {
+      // subagent 工具不走 agent-preset-registry.default，直接用自己的 agentPreset
+      // （dsh 0.2.1-rc.2 lib/index.js:252）：漏传 agent_preset 时落到的就是这里。
+      const presetLines = [...block.matchAll(/agentPreset:\s*(\S+)/g)].map((match) => match[1])
+      expect(presetLines, `第 ${index + 1} 个 tool-subagent 块的 agentPreset 数量`).toHaveLength(1)
+      expect(presetLines[0], `第 ${index + 1} 个 tool-subagent 块必须是只读 preset`).toBe('dev-tester')
+    }
+
+    // 兜底：全文任何位置都不允许出现可写角色的默认值。
+    expect(patch).not.toMatch(/agentPreset:\s*dev-developer\b/)
   })
 
   it('cordis.patch.yml：Leader preset 与顶层都挂了 subagent，且限深 1', () => {

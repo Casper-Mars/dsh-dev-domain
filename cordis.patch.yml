@@ -20,6 +20,9 @@
       # 默认 preset 必须是「偏只读」的那个：漏传 agent_preset 时不应落到可写角色。
       # schema 里 default 是 required（删掉会校验失败），因此选择显式指向 dev-tester；
       # 写操作必须由 Leader 显式传 dev-developer。
+      #
+      # 坑：这个 default 只影响 registry 自己的解析，dsh-tool-subagent 用的是它自己
+      # config.agentPreset（0.2.1-rc.2 lib/index.js:252），两处（含顶层的同名字段）必须一致。
       config:
         default: dev-tester
 
@@ -54,12 +57,17 @@
             name: '@deepseek-ai/dsh-tool-todo'
             config:
               allowParallelInProgress: false
+          # 注意：`agent-preset-registry.default` 只影响 registry 自己的解析，
+          # dsh-tool-subagent 在未传 agent_preset 时直接用这里的 agentPreset
+          # （0.2.1-rc.2 lib/index.js:252），因此漏传即落到本值。必须与 registry
+          # 的 default 保持一致，都是只读的 dev-tester；写操作由 Leader 显式传
+          # dev-developer（allowedAgentPresets 已放行）。
           - id: tool-subagent
             name: '@deepseek-ai/dsh-tool-subagent'
             config:
               provider: spawn
               toolName: subagent
-              agentPreset: dev-developer
+              agentPreset: dev-tester
               allowedAgentPresets: [dev-developer, dev-tester]
               maxDepth: 1
 
@@ -116,10 +124,12 @@
               allowParallelInProgress: false
 
 # 顶层补丁：基座 bundle 已声明 tool-subagent，这里只覆盖 config（沿用 spike 已验证写法）。
+# agentPreset 必须与上面 preset-dev-leader 里那处、以及 agent-preset-registry.default
+# 三处一致，都指向只读的 dev-tester：subagent 工具解析 preset 时不看 registry.default。
 - id: tool-subagent
   config:
     provider: spawn
     toolName: subagent
-    agentPreset: dev-developer
+    agentPreset: dev-tester
     allowedAgentPresets: [dev-developer, dev-tester]
     maxDepth: 1
