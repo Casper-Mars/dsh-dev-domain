@@ -148,6 +148,9 @@ pnpm build         # 编译到 dist-server/ 并复制 cordis.patch.yml
   日常自检请用后者。
 - 自检脚本里 `agentHost.active.toolNames` 仍为空数组（本领域零工具），文件 / 命令 /
   技能 / 待办 / 子 agent 能力全部来自 preset 组合的 dsh 内置插件。
+- `await agentHost.skillProviderReady` 只表示 provider 已就绪，不保证 `skills.list()` 立刻
+  包含全部种子：web profile 下首次 `list()` 可能只有固件条目（3 条），约 1s 后才有 13 条
+  （`rsi-skills` 首轮扫描滞后）。自动化自检请轮询到条数稳定再断言，不要只取首次结果。
 
 ## 3 个 preset
 
