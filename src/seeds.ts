@@ -273,7 +273,7 @@ whenToUse: 开始推进任意一个已拆解任务时使用，确保不跳步、
 
 **禁止什么**
 
-- 禁止 Leader 自己代替 Tester 出结论（自证不算验证）；
+- 禁止在 \`team\` 模式下由 Leader 自己代替 Tester 出结论（自证不算验证）；\`solo\` 模式按 \`dev-leader-rules\` 第 4 节自证并声明「无独立 Tester」。
 - 禁止 Tester 修改业务代码让测试变绿；
 - 禁止跳过反向用例（错误输入、边界值）。
 
@@ -1399,6 +1399,8 @@ whenToUse: 以 Developer 身份接到 Leader 派发的编码任务时，先读�
 
 1. 开工第一件事：用 \`skill\` 工具加载 \`dev-role-developer\` 与 \`dev-test-strategy\`。
    没加载就动手 = 视为未开工，产物一律无效。
+   若运行时没有 \`skill\` 工具：改为 \`read\` 资产目录对应 \`SKILL.md\`（\`$DSH_HOME/.dsh-rsi-agent/dev/assets/skills/<name>/SKILL.md\`），
+   并在回报首行声明 \`SKILL_TOOL=absent\`；不得静默跳过。
 2. 按 \`dev-test-strategy\` 的检测表 \`read\` 对应 \`references/<stack>.md\`，后续命令与断言从 ref 复制，
    不凭记忆写。
 3. 第一条回报里输出路由声明：\`STACK=<栈> REF=<references/xxx.md> DETECT=<命中的检测信号>\`。
@@ -1576,6 +1578,8 @@ whenToUse: 以 Tester 身份接到验证任务，或需要对某个 commit 出�
 
 1. 开工第一件事：用 \`skill\` 工具加载 \`dev-role-tester\` 与 \`dev-test-strategy\`。
    没加载就动手 = 视为未开工，验收结论一律无效。
+   若运行时没有 \`skill\` 工具：改为 \`read\` 资产目录对应 \`SKILL.md\`（\`$DSH_HOME/.dsh-rsi-agent/dev/assets/skills/<name>/SKILL.md\`），
+   并在回报首行声明 \`SKILL_TOOL=absent\`；不得静默跳过。
 2. \`read\` 对应 \`references/<stack>.md\`，复跑命令与断言从 ref 复制，不凭记忆写。
 3. 第一条回报里输出路由声明：\`STACK=<栈> REF=<references/xxx.md> DETECT=<命中的检测信号>\`。
 
@@ -1604,10 +1608,18 @@ git -C <worktree> diff --name-only <base>..<commit>
 | 形态 | 识别信号 | 验收方式 |
 |------|----------|----------|
 | \`commit\`（默认） | 卡片给了 branch + commit hash，\`git status\` 干净 | \`git worktree add --detach <tmp> <commit>\` |
-| \`workspace\`（沙箱禁止写 \`.git\` 时） | 卡片写明「未提交，工作区交付」 | 把 \`<worktree>\` 复制到 \`/tmp/verify-*\`（\`rsync -a --exclude node_modules --exclude .git\`），在副本里跑；同时保存 \`git diff\` 原文作为交付指纹 |
+| \`workspace\`（沙箱禁止写 \`.git\` 时） | 卡片写明「未提交，工作区交付」 | **硬步骤**：\`rsync -a --exclude node_modules --exclude .git <worktree>/ /tmp/verify-<task>-<ts>/\`，随后**只在副本内**跑断言与命令；禁止在交付 worktree 原地验收 |
 
 \`workspace\` 形态下，「\`git status --short\` 为空」不适用；改为要求：改动文件清单与卡片 AC 一致、
 \`git diff\` 非空、无未跟踪的临时文件。**不得**因为拿不到 commit 就跳过独立环境或复用 Developer 的结论。
+
+\`workspace\` 形态的验收报告必须给齐三样，缺一即判 fail：
+
+1. 副本绝对路径（\`/tmp/verify-<task>-<ts>/\`）；
+2. \`git -C <worktree> diff\` 原文（或 \`git status --short\` + 改动文件清单）；
+3. 副本内的每条命令与退出码（命令的工作目录必须是副本）。
+
+**原地验收 = 验收无效**：在交付 worktree 里直接跑命令，或报告里出现「已在原 worktree 验收」字样，一律打回重验。
 \`commit\` 形态下，步骤 1 第 2 条（工作区干净）依然必须满足。
 
 ## 步骤 2：独立复现环境

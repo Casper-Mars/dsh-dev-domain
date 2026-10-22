@@ -25,7 +25,7 @@ whenToUse: 收到子 agent 产物或 Tester 报告、准备 commit、准备把�
 | 目的 | 判断产物是否「齐全、能进验收」 | 判断产物是否「满足 AC、能交付」 |
 | 执行者 | Leader，只读操作 | `dev-tester`，独立环境 |
 | 做什么 | 文件是否存在、diff 是否越界、格式与四节标题、有无明显矛盾、命令是否跑过 | 换环境重跑、另写断言、逐条 AC 判定、边界与失败路径 |
-| 环境 | 复用当前 worktree | 临时 worktree / 全新 `DSH_HOME` |
+| 环境 | 复用当前 worktree | 临时 worktree / 全新 `DSH_HOME`；`workspace` 形态必须先 `rsync` 到 `/tmp/verify-*` 副本再验，原地验收无效 |
 | 产出 | 进 / 不进验收 | PASS / FAIL + 证据 + 严重度 |
 | 能否作为交付依据 | **不能** | **能** |
 | 典型误判 | 「tsc 过了就算验收通过」 | 只跑对方脚本、不写独立断言 |

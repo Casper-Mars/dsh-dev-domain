@@ -27,6 +27,8 @@ whenToUse: 以 Developer 身份接到 Leader 派发的编码任务时，先读�
 
 1. 开工第一件事：用 `skill` 工具加载 `dev-role-developer` 与 `dev-test-strategy`。
    没加载就动手 = 视为未开工，产物一律无效。
+   若运行时没有 `skill` 工具：改为 `read` 资产目录对应 `SKILL.md`（`$DSH_HOME/.dsh-rsi-agent/dev/assets/skills/<name>/SKILL.md`），
+   并在回报首行声明 `SKILL_TOOL=absent`；不得静默跳过。
 2. 按 `dev-test-strategy` 的检测表 `read` 对应 `references/<stack>.md`，后续命令与断言从 ref 复制，
    不凭记忆写。
 3. 第一条回报里输出路由声明：`STACK=<栈> REF=<references/xxx.md> DETECT=<命中的检测信号>`。

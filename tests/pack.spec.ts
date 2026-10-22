@@ -401,7 +401,9 @@ describe('Leader 人设与子 agent 隔离', () => {
   it('人设非空、含 Leader 身份与硬约束，且不超过 64 KB', () => {
     expect(persona.trim().length).toBeGreaterThan(0)
     expect(persona).toContain('Dev Leader')
-    expect(persona).toContain('绝不自己写业务代码')
+    expect(persona).toContain('`team` 模式（默认）')
+    expect(persona).toContain('`solo` 模式')
+    expect(persona).not.toContain('绝不自己写业务代码')
     expect(Buffer.byteLength(persona, 'utf8')).toBeLessThanOrEqual(64 * 1024)
   })
 
