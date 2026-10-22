@@ -32,6 +32,20 @@ go mod verify                   # 校验依赖未被篡改
   `GOPROXY=https://goproxy.cn,direct`（以团队规范为准）；
 - 不要 `go get -u` 全量升级，依赖变更必须单独成 commit。
 
+### 2.1 沙箱 / CI 缓存兜底（默认缓存不可写时）
+
+```bash
+export GOCACHE="${GOCACHE:-$PWD/.cache/go-build}"
+export GOMODCACHE="${GOMODCACHE:-$PWD/.cache/gomod}"
+mkdir -p "$GOCACHE" "$GOMODCACHE"
+go env GOCACHE GOMODCACHE
+```
+
+默认缓存位于 `$HOME/Library/Caches/go-build` 或 `/root/.cache/go-build`，沙箱下常在工作目录外，
+表现为 `go build: operation not permitted`；此时先设上面的变量，**不要**以此判定代码有问题。
+
+依赖有变更时补 `go mod tidy`，并单独 commit `go.mod` / `go.sum`；不要把 `go mod tidy` 混进功能 diff。
+
 ## 3. 构建
 
 ```bash

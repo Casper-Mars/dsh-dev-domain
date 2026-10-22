@@ -37,6 +37,18 @@ ohpm install                  # 安装 oh-package.json5 中的依赖
 
 依赖源与证书配置在 `~/.ohpm/`（Windows 为 `%USERPROFILE%\.ohpm\`）；私有仓需 `.ohpmrc`，不提交个人 token。
 
+### 2.0 工程完整性检查（先于 SDK 检查）
+
+```bash
+for f in hvigorw hvigorfile.ts hvigor/hvigor-config.json5 \
+         entry/src/main/module.json5 entry/src/main/ets/entryability/EntryAbility.ets; do
+  [ -e "$f" ] || echo "MISSING $f"
+done
+```
+
+缺任一文件 = 工程脚手架不完整，**不要**退回全局 `hvigorw` 硬跑（会得到 `00304004 Not Found`）；
+按「无法构建」记录，不得把 255 解释为代码错误。
+
 ### 检测不到 SDK 时（降级）
 
 ```bash

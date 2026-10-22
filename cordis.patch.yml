@@ -17,8 +17,11 @@
 
     - id: agent-preset-registry
       name: '@deepseek-ai/dsh-agent-preset-registry'
+      # 默认 preset 必须是「偏只读」的那个：漏传 agent_preset 时不应落到可写角色。
+      # schema 里 default 是 required（删掉会校验失败），因此选择显式指向 dev-tester；
+      # 写操作必须由 Leader 显式传 dev-developer。
       config:
-        default: dev-developer
+        default: dev-tester
 
     # Leader 主会话的人设由本领域 pack 提供（agentHost.install）：
     # 可进化资产、调度纪律与质量红线都在 pack 的 persona / firmware skill 里。

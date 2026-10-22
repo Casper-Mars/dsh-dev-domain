@@ -678,6 +678,20 @@ go mod verify                   # 校验依赖未被篡改
   \`GOPROXY=https://goproxy.cn,direct\`（以团队规范为准）；
 - 不要 \`go get -u\` 全量升级，依赖变更必须单独成 commit。
 
+### 2.1 沙箱 / CI 缓存兜底（默认缓存不可写时）
+
+\`\`\`bash
+export GOCACHE="\${GOCACHE:-$PWD/.cache/go-build}"
+export GOMODCACHE="\${GOMODCACHE:-$PWD/.cache/gomod}"
+mkdir -p "$GOCACHE" "$GOMODCACHE"
+go env GOCACHE GOMODCACHE
+\`\`\`
+
+默认缓存位于 \`$HOME/Library/Caches/go-build\` 或 \`/root/.cache/go-build\`，沙箱下常在工作目录外，
+表现为 \`go build: operation not permitted\`；此时先设上面的变量，**不要**以此判定代码有问题。
+
+依赖有变更时补 \`go mod tidy\`，并单独 commit \`go.mod\` / \`go.sum\`；不要把 \`go mod tidy\` 混进功能 diff。
+
 ## 3. 构建
 
 \`\`\`bash
@@ -823,6 +837,18 @@ ohpm install                  # 安装 oh-package.json5 中的依赖
 \`\`\`
 
 依赖源与证书配置在 \`~/.ohpm/\`（Windows 为 \`%USERPROFILE%\\.ohpm\\\`）；私有仓需 \`.ohpmrc\`，不提交个人 token。
+
+### 2.0 工程完整性检查（先于 SDK 检查）
+
+\`\`\`bash
+for f in hvigorw hvigorfile.ts hvigor/hvigor-config.json5 \\
+         entry/src/main/module.json5 entry/src/main/ets/entryability/EntryAbility.ets; do
+  [ -e "$f" ] || echo "MISSING $f"
+done
+\`\`\`
+
+缺任一文件 = 工程脚手架不完整，**不要**退回全局 \`hvigorw\` 硬跑（会得到 \`00304004 Not Found\`）；
+按「无法构建」记录，不得把 255 解释为代码错误。
 
 ### 检测不到 SDK 时（降级）
 

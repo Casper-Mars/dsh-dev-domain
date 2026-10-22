@@ -415,6 +415,15 @@ describe('Leader 人设与子 agent 隔离', () => {
     }
   })
 
+  it('cordis.patch.yml：agent-preset-registry 的默认 preset 不是可写角色', () => {
+    const patch = readRepoFile('cordis.patch.yml')
+    const block = patch.split('id: agent-preset-registry')[1]?.split('\n    - id: preset-dev-')[0] as string
+    expect(block, 'agent-preset-registry 配置块缺失').toBeTruthy()
+    // schema 里 default 是 required，不能删；漏传 agent_preset 时只允许落到只读的 tester。
+    expect(block).toMatch(/default:\s*dev-tester\b/)
+    expect(block).not.toMatch(/default:\s*dev-developer\b/)
+  })
+
   it('cordis.patch.yml：Leader preset 与顶层都挂了 subagent，且限深 1', () => {
     const patch = readRepoFile('cordis.patch.yml')
     expect(patch).toContain('allowedAgentPresets: [dev-developer, dev-tester]')
