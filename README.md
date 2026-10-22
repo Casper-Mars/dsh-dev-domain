@@ -6,8 +6,8 @@
 ## 设计边界
 
 - **零工具**：`tools()` 返回空数组，`toolNames` 为空；文件 / 命令 / 技能 / 待办 / 子 agent 全部由 preset 组合 dsh 内置能力。
-- **零状态文件**：领域不写业务数据，只在首次安装时通过 `assets.bootstrap` 注册 7 个可进化 Skill 种子。
-- **单次提交**：bootstrap 只调用一次 `writer.register([...])`，7 个种子落在**同一个** commit 里。
+- **零状态文件**：领域不写业务数据，只在首次安装时通过 `assets.bootstrap` 注册 7 个可进化 Skill 种子与其参考文档。
+- **单次提交**：bootstrap 只调用一次 `writer.register([...])`，12 个资产（7 个 `SKILL.md` + 5 个 `references/*.md`）落在**同一个** commit 里。
 - **子 agent 隔离**：3 个 preset 的 persona 均声明 `complete: true`，子 agent 不继承 Leader 人设。
 
 ## 目录结构
@@ -21,7 +21,7 @@
 │  ├─ plugin.ts              # Cordis 插件（name / inject / apply；固件 Skill 静态注册 + 反注册）
 │  ├─ pack.ts                # DomainPack：人设、资产类型与校验、固件 Skill 声明、bootstrap
 │  ├─ firmware.ts            # 固件 SKILL 路径 / frontmatter 解析 / SkillRegistration 构造
-│  └─ seeds.ts               # 7 个可进化 Skill 的种子正文（与 templates 逐字节一致）
+│  └─ seeds.ts               # 7 个可进化 Skill 的种子正文 + 5 个 references（与 templates 逐字节一致）
 ├─ skills/                   # 固件 Skill（随包发布、只读、不参与进化）
 │  ├─ dev-leader-rules/
 │  ├─ dev-dispatch-contract/
@@ -30,7 +30,8 @@
 │  ├─ dev-decompose/
 │  ├─ dev-ralph-loop/
 │  ├─ dev-worktree-git/
-│  ├─ dev-test-strategy/     # 含 references/（按技术栈路由，待任务-03/04 补全）
+│  ├─ dev-test-strategy/     # 只做栈检测与路由
+│  │  └─ references/         # 五栈参考：go / node-ts / react / harmony-arkts / python
 │  ├─ dev-role-developer/
 │  ├─ dev-role-tester/
 │  └─ dev-retro/
@@ -101,6 +102,9 @@ dsh --profile web --dump-config | grep -E "dev-domain|preset-dev-|allowedAgentPr
 # 资产目录应出现 7 个 Skill（默认会话 id = dev）
 ls "$DSH_HOME/.dsh-rsi-agent/dev/assets/skills"
 
+# 五栈参考文档应随种子落盘（路由可达）
+ls "$DSH_HOME/.dsh-rsi-agent/dev/assets/skills/dev-test-strategy/references"
+
 # 只应有一个种子提交（加上仓库初始化共 2 个）
 git -C "$DSH_HOME/.dsh-rsi-agent/dev/assets" log --oneline
 ```
@@ -114,11 +118,12 @@ git -C "$DSH_HOME/.dsh-rsi-agent/dev/assets" log --oneline
 
 ```bash
 pnpm typecheck     # tsc --noEmit
-pnpm test          # vitest（41 个用例：契约 / 种子 / 校验 / 固件注册 / 真实 AgentHost 集成）
+pnpm test          # vitest（45 个用例：契约 / 种子 / references / 校验 / 固件注册 / 真实 AgentHost 集成）
 pnpm build         # 编译到 dist-server/ 并复制 cordis.patch.yml
 ```
 
-改种子请先改 `templates/<name>/SKILL.md`，再同步 `src/seeds.ts`——测试会逐字节比对两者。
+改种子请先改 `templates/<name>/`（含 `references/*.md`），再同步 `src/seeds.ts`——
+测试会与 templates 逐字节比对，漂移会直接失败。
 
 ## 10 个 Skill
 
@@ -130,7 +135,7 @@ pnpm build         # 编译到 dist-server/ 并复制 cordis.patch.yml
 | 可进化 | `dev-decompose` | 需求拆解为可独立交付的任务 |
 | 可进化 | `dev-ralph-loop` | 单任务执行循环（对齐 → 派发 → 自检 → 验证 → 交付） |
 | 可进化 | `dev-worktree-git` | worktree / 分支 / commit 规范 |
-| 可进化 | `dev-test-strategy` | 五栈测试路由（Go / Node-TS / React / 鸿蒙 ArkTS / Python） |
+| 可进化 | `dev-test-strategy` | 五栈检测与路由（具体命令在 `references/`） |
 | 可进化 | `dev-role-developer` | Developer 角色规范 |
 | 可进化 | `dev-role-tester` | Tester 角色规范 |
 | 可进化 | `dev-retro` | 复盘与单变量改进 |
@@ -139,6 +144,23 @@ pnpm build         # 编译到 dist-server/ 并复制 cordis.patch.yml
 `src/plugin.ts` 在 `agentHost.install()` 之后用 `ctx.skills.register()` **静态注册**
 （core 只把 `firmwareSkills` 用于重名冲突校验，不注册其中的 markdown）；领域卸载时反注册。
 7 个可进化 Skill 由 `assets.bootstrap` 落到 `assets/skills/`，之后可由进化引擎改写。
+
+## 五栈 references
+
+`dev-test-strategy` 只做栈检测与路由，具体命令在安装后的
+`assets/skills/dev-test-strategy/references/` 下（真源为 `templates/dev-test-strategy/references/`）：
+
+| 文件 | 技术栈 | 检测信号 |
+|------|--------|----------|
+| `go.md` | Go | `go.mod` |
+| `node-ts.md` | Node / TypeScript | `package.json` + `tsconfig.json`（无前端框架） |
+| `react.md` | React | `react` 依赖 + `vite.config.*` / `next.config.*` |
+| `harmony-arkts.md` | 鸿蒙 ArkTS | `build-profile.json5` / `oh-package.json5` |
+| `python.md` | Python | `pyproject.toml` / `requirements.txt` |
+
+每个文件统一包含：检测信号、环境准备、构建、静态检查、测试、最小样例、常见坑、失败判据。
+references 随种子同批注册（同一个 commit）；`validate` 只放行 `skills/<dir>/references/<file>.md`
+这一层，`..`、绝对路径、非 `.md` 与嵌套目录一律拒绝。
 
 ## 已知限制
 

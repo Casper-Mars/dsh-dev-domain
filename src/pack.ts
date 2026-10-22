@@ -4,7 +4,8 @@
  * 设计边界（任务-02）：
  *   - **零工具**：`tools()` 返回空数组，`toolNames` 为空；
  *   - **零状态文件**：不写业务数据，只通过 `assets.bootstrap` 注册 7 个可进化
- *     Skill 种子（由 core 落到 `<home>/assets/skills/` 并产生一个 commit）；
+ *     Skill 种子与其 references 参考文档（由 core 落到 `<home>/assets/skills/`
+ *     并产生一个 commit）；
  *   - **只用 dsh 内置能力**：文件 / 命令 / 技能 / 待办 / 子 agent 均由 preset
  *     组合提供，领域包不重复实现。
  *
@@ -32,6 +33,10 @@ import { SEED_SKILLS } from './seeds.js'
 const SKILL_TYPE = 'skill'
 /** SKILL 资产前缀（相对资产根目录）。 */
 const SKILL_PREFIX = 'skills/'
+/** 参考文档目录名：skill 目录下唯一允许的子目录。 */
+const REFERENCES_DIR = 'references'
+/** 参考文档扩展名。 */
+const REFERENCE_EXT = '.md'
 /** 种子资产的统一提交说明（一次 register ⇒ 一个 commit）。 */
 const SEED_MESSAGE = 'seed dev skills (domain bootstrap)'
 
@@ -98,27 +103,77 @@ function describeValue(value: unknown): string {
  * 资产内容校验（纯函数、无 IO；抛错即整批 register 失败）
  * ------------------------------------------------------------------ */
 
-/** 从 skill 资产路径解出目录名：`skills/<dir>/SKILL.md`。 */
-function skillDirOf(path: string): string {
-  const rest = path.startsWith(SKILL_PREFIX) ? path.slice(SKILL_PREFIX.length) : undefined
-  const segments = rest?.split('/') ?? []
-  if (segments.length !== 2 || segments[0] === '' || segments[1] !== SKILL_FILE) {
-    throw new Error(
-      `[dev] skill 资产路径必须是 ${SKILL_PREFIX}<目录>/${SKILL_FILE}，实际为 "${path}"`,
-    )
-  }
-  return segments[0] as string
+/** skill 资产路径的两种合法形状：SKILL.md 本体，或 skill 目录下的参考文档。 */
+type SkillAssetShape =
+  | { readonly kind: 'skill'; readonly dir: string }
+  | { readonly kind: 'reference'; readonly dir: string }
+
+/** 路径形状不合法的统一错误（消息里带实际路径，便于定位到具体资产）。 */
+function invalidSkillPath(path: string): Error {
+  return new Error(
+    `[dev] skill 资产路径必须是 "${SKILL_PREFIX}<目录>/${SKILL_FILE}" 或 ` +
+      `"${SKILL_PREFIX}<目录>/${REFERENCES_DIR}/<文件>${REFERENCE_EXT}"，实际为 "${path}"`,
+  )
 }
 
 /**
- * skill 资产校验：frontmatter 必须存在，`name` 必须等于目录名，`description` 非空。
+ * 解析 skill 资产路径。
+ *
+ * 只接受两种形状：
+ *   - `skills/<dir>/SKILL.md`
+ *   - `skills/<dir>/references/<file>.md`（只允许一层、只允许 .md）
+ *
+ * 显式拒绝空段、`.`、`..`、反斜杠与绝对路径：这些是路径穿越入口。虽然上游
+ * writer 已做白名单，领域侧仍自己兜一层，保证「校验失败可定位到具体路径」。
+ */
+function parseSkillAssetPath(path: string): SkillAssetShape {
+  if (path.startsWith('/') || path.includes('\\')) throw invalidSkillPath(path)
+  if (!path.startsWith(SKILL_PREFIX)) throw invalidSkillPath(path)
+
+  const segments = path.slice(SKILL_PREFIX.length).split('/')
+  for (const segment of segments) {
+    if (segment === '' || segment === '.' || segment === '..') throw invalidSkillPath(path)
+  }
+
+  const dir = segments[0] as string
+  if (segments.length === 2 && segments[1] === SKILL_FILE) {
+    return { kind: 'skill', dir }
+  }
+
+  const file = segments[2] ?? ''
+  if (
+    segments.length === 3 &&
+    segments[1] === REFERENCES_DIR &&
+    file.length > REFERENCE_EXT.length &&
+    file.endsWith(REFERENCE_EXT)
+  ) {
+    return { kind: 'reference', dir }
+  }
+
+  throw invalidSkillPath(path)
+}
+
+/**
+ * skill 资产校验。
+ *
+ * - `SKILL.md`：frontmatter 必须存在，`name` 必须等于目录名，`description` 非空；
+ * - `references/<file>.md`：只要求内容非空（参考文档没有 frontmatter 约定）。
  *
  * `name` 必须等于目录名：skill-filesystem provider 以**目录名**发布技能，
  * 而 frontmatter.name 是模型侧看到的技能名；两者不一致会让「磁盘上叫 A、
  * 调用时叫 B」，属于领域语义错误。
  */
 function validateSkillAsset(path: string, content: string): void {
-  const dir = skillDirOf(path)
+  const shape = parseSkillAssetPath(path)
+
+  if (shape.kind === 'reference') {
+    if (content.trim() === '') {
+      throw new Error(`[dev] skill 参考文档 "${path}" 内容为空`)
+    }
+    return
+  }
+
+  const dir = shape.dir
   const frontmatter = parseFrontmatter(content)
   if (frontmatter === undefined) {
     throw new Error(
@@ -237,18 +292,30 @@ export const devPack: DomainPack = {
   assets: {
     types: ASSET_TYPES,
     /**
-     * 注册式资产入口：**一次** `register([...])` 写入 7 个可进化 Skill。
+     * 注册式资产入口：**一次** `register([...])` 写入 7 个可进化 Skill 与其参考文档。
      *
      * core 会先全量校验（含上面的 `validate`），全部通过才落盘，并且只产生
      * **一个** commit。必须同步；抛错会让 core 回滚整个 install。
      */
     bootstrap(writer: AssetWriter) {
-      const specs: AssetSpec[] = SEED_SKILLS.map((skill) => ({
-        type: SKILL_TYPE,
-        path: assetPath(SKILL_TYPE, skill.name, SKILL_FILE),
-        content: skill.content,
-        message: SEED_MESSAGE,
-      }))
+      const specs: AssetSpec[] = []
+      for (const skill of SEED_SKILLS) {
+        specs.push({
+          type: SKILL_TYPE,
+          path: assetPath(SKILL_TYPE, skill.name, SKILL_FILE),
+          content: skill.content,
+          message: SEED_MESSAGE,
+        })
+        for (const reference of skill.references ?? []) {
+          specs.push({
+            type: SKILL_TYPE,
+            path: assetPath(SKILL_TYPE, skill.name, reference.path),
+            content: reference.content,
+            message: SEED_MESSAGE,
+          })
+        }
+      }
+      // 单次 register：12 个资产（7 个 SKILL + 5 个 references）同批落盘，只产生一个 commit。
       writer.register(specs)
     },
   },

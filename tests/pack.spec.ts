@@ -54,6 +54,16 @@ function bootstrapSpecs(): AssetSpec[] {
   return calls[0] as AssetSpec[]
 }
 
+/** SKILL.md 规格（`skills/<dir>/SKILL.md`）。 */
+function skillSpecs(): AssetSpec[] {
+  return bootstrapSpecs().filter((spec) => spec.path.endsWith('/SKILL.md'))
+}
+
+/** 参考文档规格（`skills/<dir>/references/<file>.md`）。 */
+function referenceSpecs(): AssetSpec[] {
+  return bootstrapSpecs().filter((spec) => spec.path.includes('/references/'))
+}
+
 /** 按类型名取资产类型声明。 */
 function assetType(typeName: string) {
   const found = devPack.assets.types.find((item) => item.name === typeName)
@@ -175,19 +185,38 @@ describe('devPack 字段契约', () => {
  * ------------------------------------------------------------------ */
 
 describe('assets.bootstrap 种子注册', () => {
-  it('一次 register 注册 7 个 skill，路径 / message / 类型全部合规', () => {
+  it('一次 register 注册 7 个 SKILL 与 5 个 references，路径 / message / 类型全部合规', () => {
     const specs = bootstrapSpecs()
-    expect(specs).toHaveLength(7)
+    expect(specs).toHaveLength(12)
     expect(specs.every((spec) => spec.type === 'skill')).toBe(true)
 
     const skillType = assetType('skill')
     for (const spec of specs) {
       expect(spec.path.startsWith(skillType.prefix), `${spec.path} 必须落在 ${skillType.prefix} 下`).toBe(true)
-      expect(spec.path.endsWith('/SKILL.md')).toBe(true)
       expect(spec.message).toBe('seed dev skills (domain bootstrap)')
     }
 
-    const names = specs.map((spec) => spec.path.split('/')[1]).sort()
+    const skills = skillSpecs()
+    expect(skills).toHaveLength(7)
+    for (const spec of skills) {
+      expect(spec.path).toMatch(/^skills\/[a-z0-9-]+\/SKILL\.md$/)
+    }
+
+    const refs = referenceSpecs()
+    expect(refs).toHaveLength(5)
+    for (const spec of refs) {
+      expect(spec.path).toMatch(/^skills\/dev-test-strategy\/references\/[a-z-]+\.md$/)
+      expect(spec.content.trim().length).toBeGreaterThan(0)
+    }
+    expect(refs.map((spec) => spec.path.split('/')[3]).sort()).toEqual([
+      'go.md',
+      'harmony-arkts.md',
+      'node-ts.md',
+      'python.md',
+      'react.md',
+    ])
+
+    const names = skills.map((spec) => spec.path.split('/')[1]).sort()
     expect(names).toEqual([...SEED_SKILLS.map((skill) => skill.name)].sort())
   })
 
@@ -205,7 +234,7 @@ describe('assets.bootstrap 种子注册', () => {
   })
 
   it('每个种子都有 name / description / whenToUse，且 name 等于目录名', () => {
-    for (const spec of bootstrapSpecs()) {
+    for (const spec of skillSpecs()) {
       const dir = spec.path.split('/')[1] as string
       expect(frontmatterField(spec.content, 'name')).toBe(dir)
       expect(frontmatterField(spec.content, 'description')).toBeTruthy()
@@ -213,10 +242,52 @@ describe('assets.bootstrap 种子注册', () => {
     }
   })
 
-  it('dev-test-strategy 明确五栈路由到 references/<stack>.md', () => {
+  it('references 与 templates/dev-test-strategy/references/*.md 逐字节一致（防漂移）', () => {
+    const specs = referenceSpecs()
+    for (const spec of specs) {
+      const relative = spec.path.replace('skills/dev-test-strategy/', 'templates/dev-test-strategy/')
+      expect(spec.content, `${relative} 与模板不一致`).toBe(readRepoFile(relative))
+    }
+  })
+
+  it('5 个 references 结构完整：检测 / 环境 / 构建 / 检查 / 测试 / 样例 / 坑 / 判据', () => {
+    for (const spec of referenceSpecs()) {
+      for (const heading of [
+        '## 1. 检测信号',
+        '## 2. 环境准备',
+        '## 3. 构建',
+        '## 4. 静态检查',
+        '## 5. 测试',
+        '## 6. 最小样例',
+        '## 7. 常见坑',
+        '## 8. 失败判据',
+      ]) {
+        expect(spec.content, `${spec.path} 缺少「${heading}」`).toContain(heading)
+      }
+    }
+  })
+
+  it('dev-test-strategy 明确五栈路由到 references/<stack>.md，且不堆具体命令', () => {
     const content = readTemplate('dev-test-strategy')
     for (const stack of ['go', 'node-ts', 'react', 'harmony-arkts', 'python']) {
       expect(content).toContain(`references/${stack}.md`)
+    }
+    // 路由文件只做检测与指向：具体栈的构建/测试命令应留在 references 里。
+    for (const command of [
+      'go build',
+      'go test',
+      'go vet',
+      'pnpm exec tsc',
+      'pnpm exec vitest',
+      'pnpm exec playwright',
+      'ohpm install',
+      'hvigorw',
+      'uv sync',
+      'pytest',
+      'ruff check',
+      'mypy',
+    ]) {
+      expect(content, `dev-test-strategy 不应包含具体栈命令：${command}`).not.toContain(command)
     }
   })
 })
@@ -259,6 +330,32 @@ describe('assets.types[].validate 语义校验', () => {
     expect(() =>
       skillType.validate?.(`${skillType.prefix}SKILL.md`, '---\nname: x\ndescription: y\n---\n'),
     ).toThrowError(/SKILL\.md/)
+  })
+
+  it('references 只允许一层 .md：../、非 .md、嵌套两层、绝对路径一律拒绝', () => {
+    const content = '# 参考\n\n正文\n'
+    const allowed = `${skillType.prefix}dev-test-strategy/references/go.md`
+    expect(() => skillType.validate?.(allowed, content)).not.toThrow()
+
+    const rejected = [
+      `${skillType.prefix}dev-test-strategy/references/../../../etc/passwd.md`,
+      `${skillType.prefix}dev-test-strategy/references/../SKILL.md`,
+      `${skillType.prefix}dev-test-strategy/references/go.txt`,
+      `${skillType.prefix}dev-test-strategy/references/nested/go.md`,
+      `${skillType.prefix}dev-test-strategy/references/.md`,
+      `/abs/skills/dev-test-strategy/references/go.md`,
+      `${skillType.prefix}dev-test-strategy/other/go.md`,
+    ]
+    for (const path of rejected) {
+      expect(() => skillType.validate?.(path, content), `应拒绝 ${path}`).toThrowError(
+        /skill 资产路径必须是/,
+      )
+    }
+  })
+
+  it('references 内容为空 → 抛错且点出具体路径', () => {
+    const path = `${skillType.prefix}dev-test-strategy/references/go.md`
+    expect(() => skillType.validate?.(path, '  \n\n')).toThrowError(/references\/go\.md/)
   })
 })
 
@@ -342,13 +439,14 @@ describe('Leader 人设与子 agent 隔离', () => {
  * ------------------------------------------------------------------ */
 
 describe('真实 core 集成：install / 一次提交 / 拆卸', () => {
-  it('install 成功：active.id = dev，7 个种子落盘，一批只产生一个提交', () => {
+  it('install 成功：active.id = dev，7 个种子 + 5 个 references 落盘，一批只产生一个提交', () => {
     const home = tempHome('install')
     const host = new AgentHost(new Context())
     const dispose = host.install(devPack, { home })
     try {
       expect(host.active?.id).toBe('dev')
       expect(host.active?.runtime.sessionId).toBe('dev')
+      expect(host.active?.toolNames).toEqual([])
 
       const assetsDir = host.active?.runtime.assetsDir as string
       const skillDirs = readdirSync(join(assetsDir, 'skills')).sort()
@@ -357,10 +455,37 @@ describe('真实 core 集成：install / 一次提交 / 拆卸', () => {
         expect(existsSync(join(assetsDir, 'skills', skill.name, 'SKILL.md'))).toBe(true)
       }
 
+      // references 必须真的随种子落盘：路由指向的路径在安装后可读。
+      const refDir = join(assetsDir, 'skills', 'dev-test-strategy', 'references')
+      const refFiles = readdirSync(refDir).sort()
+      expect(refFiles).toEqual([
+        'go.md',
+        'harmony-arkts.md',
+        'node-ts.md',
+        'python.md',
+        'react.md',
+      ])
+      for (const file of refFiles) {
+        expect(readFileSync(join(refDir, file), 'utf8').trim().length, `${file} 内容为空`).toBeGreaterThan(0)
+      }
+
+      // 路由可达性：SKILL.md 里出现的每个 references/<stack>.md 都必须存在。
+      const strategy = readFileSync(
+        join(assetsDir, 'skills', 'dev-test-strategy', 'SKILL.md'),
+        'utf8',
+      )
+      const routed = [...strategy.matchAll(/references\/([a-z-]+)\.md/g)].map((match) => match[1])
+      expect(routed.length).toBeGreaterThanOrEqual(5)
+      for (const stack of routed) {
+        expect(existsSync(join(refDir, `${stack}.md`)), `路由指向的 references/${stack}.md 不存在`).toBe(
+          true,
+        )
+      }
+
       expect(gitLast(assetsDir, '%an')).toBe(GIT_IDENTITY_NAME)
       const full = gitLast(assetsDir, '%B')
       expect(full).toContain('seed dev skills (domain bootstrap)')
-      // 初始化仓库 1 个 + 本次批量 1 个。
+      // 初始化仓库 1 个 + 本次批量 1 个（12 个资产同批）。
       expect(gitCommitCount(assetsDir)).toBe(2)
     } finally {
       dispose()
