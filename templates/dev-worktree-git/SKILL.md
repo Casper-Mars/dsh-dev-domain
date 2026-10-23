@@ -112,10 +112,10 @@ chore/bump-vitest-3-2
 示例：
 
 ```
-feat(task-04): 扩写 7 个可进化 Skill 与五栈 references
+feat(task-04): 扩写 6 个可进化 Skill 与五栈 references
 
 - templates/ 为真源，seeds.ts 同步生成，测试逐字节比对
-- bootstrap 改为一次 register 注册 12 个资产（7 SKILL + 5 ref）
+- bootstrap 改为一次 register 注册 11 个资产（6 SKILL + 5 ref）
 - 验证：pnpm typecheck / pnpm test / pnpm build 均 exit 0
 ```
 

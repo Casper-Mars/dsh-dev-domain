@@ -4,7 +4,7 @@
  * 两层：
  *   - **纯函数层**：字段契约、路径派生、种子与模板一致性、校验反例；
  *   - **集成层**：用 core 的真实 `AgentHost.install` 在临时 home 下落盘 + git 提交，
- *     验证 `agentHost.active.id === 'dev'`、7 个种子一次提交、拆卸后人设回退。
+ *     验证 `agentHost.active.id === 'dev'`、6 个种子一次提交、拆卸后人设回退。
  */
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
@@ -210,9 +210,9 @@ describe('devPack 字段契约', () => {
  * ------------------------------------------------------------------ */
 
 describe('assets.bootstrap 种子注册', () => {
-  it('一次 register 注册 7 个 SKILL 与 5 个 references，路径 / message / 类型全部合规', () => {
+  it('一次 register 注册 6 个 SKILL 与 5 个 references，路径 / message / 类型全部合规', () => {
     const specs = bootstrapSpecs()
-    expect(specs).toHaveLength(12)
+    expect(specs).toHaveLength(11)
     expect(specs.every((spec) => spec.type === 'skill')).toBe(true)
 
     const skillType = assetType('skill')
@@ -222,7 +222,7 @@ describe('assets.bootstrap 种子注册', () => {
     }
 
     const skills = skillSpecs()
-    expect(skills).toHaveLength(7)
+    expect(skills).toHaveLength(6)
     for (const spec of skills) {
       expect(spec.path).toMatch(/^skills\/[a-z0-9-]+\/SKILL\.md$/)
     }
@@ -408,7 +408,7 @@ describe('固件 Skill', () => {
     }
   })
 
-  it('2 个固件与 7 个种子名称互不重复', () => {
+  it('2 个固件与 6 个种子名称互不重复', () => {
     const firmwareNames = new Set((devPack.firmwareSkills ?? []).map((skill) => skill.name))
     for (const seed of SEED_SKILLS) {
       expect(firmwareNames.has(seed.name)).toBe(false)
@@ -428,10 +428,10 @@ describe('Leader 人设与子 agent 隔离', () => {
     expect(persona).toContain('Dev Leader')
     expect(persona).toContain('`team` 模式（默认）')
     expect(persona).toContain('`solo` 模式')
-    expect(persona).toContain('## 2. 先量 size，再判 team / solo')
+    expect(persona).toContain('## 阶段 1 · 判定：先量 size，再判 team / solo')
     expect(persona).toContain('| 改动文件数 | ≤ 2 |')
     expect(persona).toContain('**默认 team**')
-    expect(persona).toContain('## 3. team 模式：只做元操作')
+    expect(persona).toContain('## 阶段 2 · 派发（team）：只做元操作')
     expect(persona).toContain('## Red Lines（不可协商）')
     expect(persona).toContain('## 检查清单')
     // Leader 规则已并入人设：细节只指向保留下来的两个固件 Skill。
@@ -441,20 +441,34 @@ describe('Leader 人设与子 agent 隔离', () => {
     expect(Buffer.byteLength(persona, 'utf8')).toBeLessThanOrEqual(64 * 1024)
   })
 
-  it('cordis.patch.yml：主会话 preset 不挂 persona（人设来自领域包），两个子 agent preset 用 complete: true 隔离', () => {
+  it('cordis.patch.yml：主会话 preset 不挂 persona，两个子 agent preset 用完整流程骨架 + complete: true 隔离', () => {
     const patch = readRepoFile('cordis.patch.yml')
     const sections = patch.split(/\n {4}- id: preset-dev-/).slice(1)
     expect(sections).toHaveLength(3)
     for (const section of sections) {
-      const head = section.slice(0, section.indexOf('\n\n'))
-      if (head.includes('id: dev-leader\n')) {
+      if (section.includes('id: dev-leader\n')) {
         // Leader 人设由 `DomainPack.persona.markdown()` 注入 `rsi-agent:persona`；
         // preset 再挂 persona 会以 shadow 关系把领域人设盖掉。
-        expect(head, 'Leader preset 不得再挂 persona').not.toContain('id: persona')
-        expect(head, 'Leader preset 不得再宣告 complete').not.toContain('complete: true')
+        expect(section, 'Leader preset 不得再挂 persona').not.toContain('id: persona')
+        expect(section, 'Leader preset 不得再宣告 complete').not.toContain('complete: true')
         continue
       }
-      expect(head, '子 agent preset 的 persona 必须 complete: true').toContain('complete: true')
+      expect(section, '子 agent preset 的 persona 必须 complete: true').toContain('complete: true')
+
+      // 流程骨架必须落在 preset persona 里（常驻 system prompt），不能再依赖可进化 Skill。
+      const prefix = section.split('prefix: |\n')[1]?.split('\n              complete: true')[0]
+      expect(prefix, '子 agent preset 缺少 persona.prefix').toBeTruthy()
+      const lines = (prefix as string).split('\n').filter((line) => line.trim() !== '')
+      expect(lines.length, 'persona 骨架应为 15–25 行').toBeGreaterThanOrEqual(15)
+      expect(lines.length, 'persona 骨架应为 15–25 行').toBeLessThanOrEqual(25)
+
+      const required =
+        section.includes('id: dev-developer\n')
+          ? ['对齐', 'worktree', 'references/<stack>.md', '自测', '交付']
+          : ['对齐', 'verify-', '逐项', '报告']
+      for (const keyword of required) {
+        expect(prefix, `persona 骨架缺少「${keyword}」`).toContain(keyword)
+      }
     }
   })
 
@@ -530,7 +544,7 @@ describe('Leader 人设与子 agent 隔离', () => {
  * ------------------------------------------------------------------ */
 
 describe('真实 core 集成：install / 一次提交 / 拆卸', () => {
-  it('install 成功：active.id = dev，7 个种子 + 5 个 references 落盘，一批只产生一个提交', () => {
+  it('install 成功：active.id = dev，6 个种子 + 5 个 references 落盘，一批只产生一个提交', () => {
     const home = tempHome('install')
     const host = new AgentHost(new Context())
     const dispose = host.install(devPack, { home })
@@ -576,7 +590,7 @@ describe('真实 core 集成：install / 一次提交 / 拆卸', () => {
       expect(gitLast(assetsDir, '%an')).toBe(GIT_IDENTITY_NAME)
       const full = gitLast(assetsDir, '%B')
       expect(full).toContain('seed dev skills (domain bootstrap)')
-      // 初始化仓库 1 个 + 本次批量 1 个（12 个资产同批）。
+      // 初始化仓库 1 个 + 本次批量 1 个（11 个资产同批）。
       expect(gitCommitCount(assetsDir)).toBe(2)
     } finally {
       dispose()

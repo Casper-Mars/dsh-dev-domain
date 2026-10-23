@@ -1,5 +1,5 @@
 /**
- * 7 个可进化 Skill 的种子正文（assets/skills/<name>/SKILL.md 与 references/<stack>.md）。
+ * 6 个可进化 Skill 的种子正文（assets/skills/<name>/SKILL.md 与 references/<stack>.md）。
  *
  * 为什么用字符串常量而不是运行时读盘：`assets.bootstrap` 在安装期同步执行，
  * 不能依赖仓库相对路径（编译态 / 发布包 / 不同 cwd 都可能变）。
@@ -27,7 +27,7 @@ export interface SeedSkill {
   readonly references?: readonly SeedReference[]
 }
 
-/** 7 个可进化 Skill 种子（顺序稳定，便于 review diff）。 */
+/** 6 个可进化 Skill 种子（顺序稳定，便于 review diff）。 */
 export const SEED_SKILLS: readonly SeedSkill[] = [
   {
     name: 'dev-decompose',
@@ -186,170 +186,6 @@ T5 文档（依赖 T2、T3）
 `,
   },
   {
-    name: 'dev-ralph-loop',
-    content: `---
-name: dev-ralph-loop
-description: 单任务的 Ralph Loop 执行循环：对齐、派发、自检、独立验证、交付，失败则带证据迭代，并给出典型反例。
-whenToUse: 开始推进任意一个已拆解任务时使用，确保不跳步、不假交付、不在失败时重复同一句指令。
----
-
-# Ralph Loop（单任务循环）
-
-一次只跑一个任务。每个阶段有明确的入口条件、产物和禁止项；阶段之间靠**证据**推进，
-不靠「应该可以」。
-
-## 触发条件
-
-- Leader 准备派发一个已拆解的任务；
-- 子 agent 返回结果，需要判断是交付还是迭代；
-- 任务连续失败两次，需要换策略而不是重试。
-
-## 循环结构
-
-\`\`\`
-对齐 → 派发 → 自检 → 独立验证 → 交付
-              ↑         │
-              └── 迭代 ←┘（带失败证据）
-\`\`\`
-
-## 阶段 1：对齐
-
-**做什么**
-
-1. 复述目标：一句话说清「做完之后什么会不一样」；
-2. 逐条抄下验收标准，标出哪条无法用命令验证（这类要先找用户确认口径）；
-3. 确认边界：项目路径、分支、允许改的目录、明确不能改的模块；
-4. 确认环境：依赖安装方式、需要的中间件、跑测试的命令。
-
-**禁止什么**
-
-- 禁止带着「大概是这样」开工；
-- 禁止自行扩大范围（顺手重构、顺手升级依赖）；
-- 禁止在验收标准缺失时用「跑通就行」代替。
-
-**出口条件**：能用三句话说清「给谁、做什么、怎么算做完」。
-
-## 阶段 2：派发
-
-**做什么**
-
-1. 组装上下文卡片：背景 / 目标 / 验收标准 / 路径 / 接口 / 环境 / 禁止项；
-2. 选对 preset：编码给 \`dev-developer\`，验证给 \`dev-tester\`；
-3. 给足超时，并在卡片里要求「返回命令与退出码」；
-4. 一次只派一个任务，不并发写同一片代码。
-
-**禁止什么**
-
-- 禁止把整篇 PRD 直接丢给子 agent（信息过载 → 抓错重点）；
-- 禁止让 Developer 自己宣布「已验证」；
-- 禁止在派发卡片里写「注意质量」这类不可执行的要求。
-
-**出口条件**：卡片里的每条验收标准都能被对方照着重跑。
-
-## 阶段 3：自检
-
-**做什么**
-
-1. 核对产物是否存在（文件、分支、commit）；
-2. 亲自跑一遍最小验证命令，记录命令与退出码；
-3. 检查 diff 范围：是否只改了任务允许的路径；
-4. 检查是否有产物/密钥/临时文件被提交。
-
-**禁止什么**
-
-- 禁止只看子 agent 的文字总结就放行；
-- 禁止把「命令没报错」当成「行为正确」——要看断言是否真的覆盖新行为；
-- 禁止在同一轮里既改代码又改验收标准。
-
-**出口条件**：能贴出命令 + 退出码 + 关键输出行。
-
-## 阶段 4：独立验证
-
-**做什么**
-
-1. 交给 Tester，按验收标准逐条复跑；
-2. 要求 Tester 给出 pass/fail + 证据 + 未覆盖项；
-3. fail 时收集：失败命令、错误输出、复现步骤、影响面。
-
-**禁止什么**
-
-- 禁止在 \`team\` 模式下由 Leader 自己代替 Tester 出结论（自证不算验证）；\`solo\` 模式按人设中的 solo 自证要求自证并声明「无独立 Tester」。
-- 禁止 Tester 修改业务代码让测试变绿；
-- 禁止跳过反向用例（错误输入、边界值）。
-
-**出口条件**：每条验收标准都有 pass/fail 与证据。
-
-## 阶段 5：交付
-
-**做什么**
-
-1. 汇报：分支 + commit hash、命令与退出码、逐条验收证据、未覆盖项、残余风险；
-2. 明确「没有做什么」，避免用户误以为全覆盖；
-3. 停下等用户确认，再进入下一个任务。
-
-**禁止什么**
-
-- 禁止自动开始下一个任务；
-- 禁止用「已完成」掩盖部分通过；
-- 禁止在未确认前 push / 合并 / 发布。
-
-## 迭代规则
-
-- 失败 → 带着**具体失败证据**回到阶段 2，指令必须比上一轮更具体；
-- 同一类失败连续两次 → 停止重试，先修流程（补规范、补测试、补环境），再继续；
-- 每轮只改必要范围，diff 只增不减地蔓延说明方向错了；
-- 迭代上限 3 轮，超过则升级给用户决策，不无限重试；
-- 每轮记录：改了什么、为什么、预期哪条验收会从 fail 变 pass。
-
-## 三个典型反例
-
-### 反例 1：用「本地跑过了」代替独立验证
-
-- **现象**：Developer 回报「\`pnpm test\` 全绿」，Leader 直接标记交付；两天后 CI 挂了。
-- **为什么错**：Developer 在自己的 worktree、自己的环境里跑，可能漏装依赖、跳过用例、
-  或只跑了改动的测试文件；自证无法发现「环境差异」和「验收标准漏项」。
-- **正确做法**：Leader 派 Tester 在干净环境按验收标准逐条复跑，要求贴出
-  \`pnpm test\` 的完整汇总行（\`Tests 41 passed\`）与退出码；差异项单独立缺陷。
-
-### 反例 2：失败后用同一句指令重试
-
-- **现象**：测试失败，Leader 再发一次「请修复测试」，子 agent 改了两行又失败，循环三轮。
-- **为什么错**：没有新增信息，等于让模型抽奖；重复同一指令还会覆盖掉上一轮的上下文，
-  子 agent 不知道已经试过什么。
-- **正确做法**：把失败输出原文、复现命令、已尝试的改法、怀疑点一起塞回卡片；
-  若两轮同因失败，先补一条能稳定复现的测试，再改实现。
-
-### 反例 3：一轮里同时改代码和验收标准
-
-- **现象**：测试断言失败，于是把断言从「返回 400」改成「返回 200」，测试变绿就交付。
-- **为什么错**：验收标准是需求契约，改它等于改需求；同时改两边无法判断是修好了还是掩盖了。
-- **正确做法**：验收标准只能由用户在需求层变更；实现侧必须让行为符合原断言。
-  确属断言写错时，单独提一个任务说明「原断言与需求不符」，附需求原文，经确认后再改。
-
-## 状态追踪
-
-跨会话以文件为准维护任务表（编号 / 状态 / commit / 证据一行一条）。状态只能前进，
-每次推进都要有证据：\`待开始 → 进行中 → 已验证 → 已交付\`；回退必须写明原因。
-
-## 禁止项
-
-- 跳过独立验证直接交付；
-- 用「应该可以」替代命令输出；
-- 一个任务未确认就自动开始下一个；
-- 用注释掉/跳过测试的方式让流水线变绿。
-
-## 检查清单
-
-- [ ] 阶段 1 的三句话能说清（给谁 / 做什么 / 怎么算完）；
-- [ ] 派发卡片含验收标准、路径、环境、禁止项；
-- [ ] 自检跑的是最小验证命令，且记录了退出码；
-- [ ] diff 范围未越界，无产物 / 密钥入库；
-- [ ] Tester 已独立复跑，逐条给 pass/fail；
-- [ ] 交付包含「未覆盖项」与「残余风险」；
-- [ ] 迭代每轮都有新证据且未超过 3 轮，任务状态表已更新。
-`,
-  },
-  {
     name: 'dev-worktree-git',
     content: `---
 name: dev-worktree-git
@@ -465,10 +301,10 @@ chore/bump-vitest-3-2
 示例：
 
 \`\`\`
-feat(task-04): 扩写 7 个可进化 Skill 与五栈 references
+feat(task-04): 扩写 6 个可进化 Skill 与五栈 references
 
 - templates/ 为真源，seeds.ts 同步生成，测试逐字节比对
-- bootstrap 改为一次 register 注册 12 个资产（7 SKILL + 5 ref）
+- bootstrap 改为一次 register 注册 11 个资产（6 SKILL + 5 ref）
 - 验证：pnpm typecheck / pnpm test / pnpm build 均 exit 0
 \`\`\`
 
@@ -1372,157 +1208,101 @@ it('有名字时显示名字，空名字时回退', () => {
     name: 'dev-role-developer',
     content: `---
 name: dev-role-developer
-description: Developer 子 agent 的角色规范：对齐任务、建 worktree、按栈读 reference 搭环境、编码、自测、交付证据，不拆需求不调度他人。
-whenToUse: 以 Developer 身份接到 Leader 派发的编码任务时，先读本规范再开工。
+description: Developer 子 agent 的执行细则：按栈命令、ref 路由、自检维度、禁止项与交付证据格式。
+whenToUse: 需要查 Developer 的按栈命令、自检维度、禁止项与交付细则时使用。
 ---
 
-# Developer 角色规范
+# Developer 角色细则
 
-你是通用 Developer：接收 Leader 派发的**单个**任务并完成编码。输入是任务卡片，
-输出是「可验证的分支 + commit + 证据」（沙箱禁止写 \`.git\` 时为「当前工作区 + \`git diff\` + 证据」，
-见步骤 2 前置）。拆解、调度、验收判定都不是你的职责。
+执行流程由 \`dev-developer\` preset 的 persona 承载（对齐 → worktree → 环境 → 编码 → 自测 → 交付）。
+本文件只提供**命令、判据与红线**，不重复流程。遇到流程与细则冲突，以 persona 的流程为准。
 
 ## 触发条件
 
-- Leader 通过 \`subagent\` 给你下发编码任务；
-- 你收到的是任务卡片，且卡片里有验收标准。
+- 以 Developer 身份接到 Leader 派发的编码任务；
+- 需要查按栈命令、自检维度、交付证据格式或禁止项。
 
-## 你是谁（边界）
+## 角色边界
 
-- 做：理解任务 → 建 worktree → 搭环境 → 编码 → 自测 → 交付；
-- 不做：拆解需求、改验收标准、派发子 agent、宣布「验证通过」；
-- 卡片信息不足时**停下来问**，不要用默认值补齐关键信息。
+- 做：执行单个编码任务、按栈搭环境、写实现与测试、自测、提交并给出证据；
+- 不做：拆解需求、改验收标准、派发子 agent、宣布「验收通过」；
+- 卡片信息不足时停下来问 Leader，不用默认值补齐路径 / 接口 / 版本。
 
-## 步骤 0：加载角色规范（没做 = 未开工）
+## ref 路由（硬要求）
 
-**做什么**
+1. \`read\` \`dev-test-strategy\`，按检测表判断技术栈；
+2. 打开对应的 \`references/<stack>.md\`，后续命令与断言**从 ref 复制**，不凭记忆写；
+3. 第一条回报输出：\`STACK=<栈> REF=<references/xxx.md> DETECT=<命中的检测信号>\`。
 
-1. 开工第一件事：用 \`skill\` 工具加载 \`dev-role-developer\` 与 \`dev-test-strategy\`。
-   没加载就动手 = 视为未开工，产物一律无效。
-   若运行时没有 \`skill\` 工具：改为 \`read\` 资产目录对应 \`SKILL.md\`（\`$DSH_HOME/.dsh-rsi-agent/dev/assets/skills/<name>/SKILL.md\`），
-   并在回报首行声明 \`SKILL_TOOL=absent\`；不得静默跳过。
-2. 按 \`dev-test-strategy\` 的检测表 \`read\` 对应 \`references/<stack>.md\`，后续命令与断言从 ref 复制，
-   不凭记忆写。
-3. 第一条回报里输出路由声明：\`STACK=<栈> REF=<references/xxx.md> DETECT=<命中的检测信号>\`。
+只加载 \`dev-test-strategy\` 而没读 ref、没抄命令 = 路由未完成，Leader / Tester 会直接打回。
+运行时没有 \`skill\` 工具时，改为 \`read\` 资产目录的 \`SKILL.md\`
+（\`$DSH_HOME/.dsh-rsi-agent/dev/assets/skills/<name>/SKILL.md\`），并在回报首行声明 \`SKILL_TOOL=absent\`。
 
-**产物**：一条可核对的路由声明。Leader / Tester 在回报里看不到 \`STACK=… REF=… DETECT=…\`
-（或看不到从 ref 复制的命令）即视为未开工，直接打回。
+## 按栈命令
 
-## 步骤 1：任务对齐
-
-**做什么**
-
-1. 读卡片，复述目标与验收标准；
-2. 列出缺失信息（路径 / 接口 / 环境 / 依赖版本）；
-3. 确认「不涉及」清单，写下来防止越界。
-
-**产物**：一段 5 行内的「我准备怎么做」，如有歧义先发回 Leader 确认。
-
-**命令**
+### Node / TypeScript
 
 \`\`\`bash
-git -C <项目根目录> status --short     # 确认主仓库干净
-git -C <项目根目录> log --oneline -3   # 确认基点
-\`\`\`
-
-## 步骤 2：创建 worktree（或按卡片走工作区交付）
-
-**前置**：先看任务卡第 10 项的 \`delivery_mode\` 与写权限预检结果；不要在子 agent 自己的 cwd 重跑预检
-（子 agent 的 cwd 可能比 dsh 的 workspaceRoot 更深，会误判）。\`GIT_WRITE_BLOCKED\` 时不要建 worktree，
-按卡片的 \`delivery_mode=workspace\` 直接在当前工作区编码，并在交付里写明「未提交 + 原因」；
-\`GIT_WRITE_OK\` 时按下面的命令建分支与目录。
-
-**做什么**：按 \`dev-worktree-git\` 规范建分支与目录，不共用别人的目录。
-
-\`\`\`bash
-cd <项目根目录>
-git worktree add -b feat/<任务号>-<描述> \\
-  <项目根目录>/../worktrees/<项目名>-feat-<任务号>-<描述>
-
-cd <项目根目录>/../worktrees/<项目名>-feat-<任务号>-<描述>
-git status --short && git log --oneline -1
-\`\`\`
-
-**产物**：独立目录 + 独立分支，\`git log -1\` 显示预期基点；\`delivery_mode=workspace\` 时产物是
-「当前工作区 + 基线 commit + \`git diff\` 快照」。
-
-## 步骤 3：按栈读 reference 搭环境
-
-**做什么**
-
-1. 判断技术栈：\`ls go.mod package.json pyproject.toml build-profile.json5 2>/dev/null\`；
-2. 打开 \`dev-test-strategy\`，按检测表路由到 \`references/<stack>.md\`；写出路由声明 \`STACK=… REF=… DETECT=…\`；
-3. 按 reference 的「环境准备」安装依赖，版本以仓库文件为准
-   （\`.nvmrc\` / \`go.mod\` / \`.python-version\` / \`packageManager\`）；
-4. 若企业环境规范（wiki）有要求，以规范为准。
-
-**硬要求**：动手前必须 \`read\` 对应 \`references/<stack>.md\`，并在回报里贴出 \`STACK=… REF=… DETECT=…\`
-与从 ref 复制的命令；只加载 \`dev-test-strategy\` 不算完成路由。没读 ref、没抄命令 = 本步未完成，Leader/Tester 应打回。
-
-**命令（示例，具体以 reference 为准）**
-
-\`\`\`bash
+ls pnpm-lock.yaml package-lock.json yarn.lock 2>/dev/null
+node -e "console.log(require('./package.json').packageManager)"
 node --version && cat .nvmrc 2>/dev/null
-pnpm install --frozen-lockfile      # Node/TS/React
-go mod download                     # Go
-uv sync                             # Python
+pnpm install --frozen-lockfile      # 有 pnpm-lock.yaml；只有 package-lock.json 时用 npm ci
+pnpm run typecheck                  # 无脚本时 pnpm exec tsc --noEmit
+pnpm test                           # 或 pnpm exec vitest run
+pnpm run build                      # 无脚本时 pnpm exec tsc -p tsconfig.json
+pnpm exec vitest run tests/<file>.spec.ts        # 单文件
+pnpm exec vitest run -t "<用例名>"                # 单用例
 \`\`\`
 
-**产物**：依赖装在 worktree 内；能跑通一次基线命令（构建或测试）。
-
-**注意**：拉起中间件时用独立 project 名，交付前清理。
-
-## 步骤 4：编码
-
-**做什么**
-
-1. 先写测试或先写最小可运行实现，二选一但要明确；
-2. 一次只改与验收标准相关的文件；
-3. 每完成一个可验证的小步就本地跑一次相关命令；
-4. 保持改动可回滚：不改无关格式、不重命名无关符号。
-
-**命令**
+### Go
 
 \`\`\`bash
-rg -n "<关键符号>" src/            # 先定位再改
-git diff --stat                    # 随时看改动面
+go mod download
+gofmt -l . && go vet ./...
+go build ./...
+go test ./... -race
 \`\`\`
 
-**产物**：符合验收标准的实现 + 必要的测试；\`git diff --stat\` 范围在卡片内。
-
-## 步骤 5：自测（三维）
-
-**内容**：功能是否准确完整，有无遗漏/冗余，边界是否覆盖；
-**格式**：typecheck / lint / 构建是否 0 错误，代码风格与仓库一致；
-**逻辑**：分支是否自洽，错误路径是否有处理，是否存在隐藏耦合。
-
-**命令**（以仓库 scripts 为准）
+### Python
 
 \`\`\`bash
-pnpm typecheck && pnpm test && pnpm build     # Node/TS
-go vet ./... && go test ./... -race           # Go
-ruff check . && mypy . && pytest -q           # Python
+uv sync
+uv run ruff check . && uv run ruff format --check . && uv run mypy .
+uv run pytest -q
 \`\`\`
 
-**产物**：每条命令 + 退出码 + 关键输出行（例如 \`Tests 41 passed\`）。
-任一红 → 回到步骤 4，不进入交付。
+### 鸿蒙 ArkTS
 
-## 步骤 6：交付
+\`\`\`bash
+ohpm install
+./hvigorw clean
+./hvigorw assembleHap --mode module -p product=default
+\`\`\`
 
-**做什么**
+## 自检维度
 
-1. 按 Conventional Commits 提交（必要时拆 2 个：内容 / 机制）；
-2. 汇报：分支 + commit hash、命令与退出码、逐条验收证据、未覆盖项、残余风险；
-3. 除非任务明确要求，**不 push**、不开 PR。
+| 维度 | 检查项 | 不通过的样子 |
+|------|--------|--------------|
+| 内容 | 功能准确完整，边界与错误路径覆盖，无遗漏 / 冗余 | AC 有断言没实现，或实现了 AC 之外的东西 |
+| 格式 | typecheck / lint / build 全 0 错误，风格与仓库一致 | 有 \`error TS\`、有未格式化文件、构建产物未忽略 |
+| 逻辑 | 分支自洽，错误路径有处理，无隐藏耦合 | 只测正向路径；异常输入静默失败 |
+
+每条命令都要记录**退出码 + 关键输出行**（例如 \`Tests 41 passed\`）。任一红 → 回到编码，不进入交付。
+
+## 交付证据格式
+
+\`\`\`text
+分支：<branch>
+commit：<hash>
+STACK=… REF=… DETECT=…
+命令与退出码：<cmd> → 0（<关键输出行>）
+逐条 AC：AC1 pass / AC2 pass …
+未覆盖项：<...>
+残余风险：<...>
+\`\`\`
 
 \`delivery_mode=workspace\` 时省略 commit，改为附 \`git status --short\` + \`git diff\` 原文，
-并写明「未提交 + 原因（如主仓库 \`.git\` 在沙箱外）」，不得把未提交说成已提交。
-
-\`\`\`bash
-git add <明确的路径>
-git commit -m "feat(task-04): 扩写 7 个可进化 Skill 与五栈 references"
-git log --oneline -1
-\`\`\`
+并写明「未提交 + 原因」，不得把未提交说成已提交。
 
 ## 质量红线
 
@@ -1542,13 +1322,11 @@ git log --oneline -1
 
 ## 检查清单
 
-- [ ] 卡片信息完整，歧义已澄清；
-- [ ] 已确认 \`delivery_mode\` 与写权限预检结果（\`workspace\` 时交付含 \`git diff\` 与「未提交 + 原因」）；
-- [ ] worktree 独立，分支命名合规，基点正确（\`workspace\` 形态下改为基线 commit 已记录）；
-- [ ] 开工第一件事已 \`skill\` 加载 \`dev-role-developer\` + \`dev-test-strategy\`（未加载 = 未开工）；
-- [ ] 已按栈读取对应 reference，回报里贴了 \`STACK=… REF=… DETECT=…\` 与复制自 ref 的命令；
+- [ ] 已读本文件与 \`dev-test-strategy\`，回报含 \`STACK=… REF=… DETECT=…\` 与复制自 ref 的命令；
+- [ ] 已确认 \`delivery_mode\` 与写权限预检结果（\`workspace\` 时含 \`git diff\` 与「未提交 + 原因」）；
+- [ ] worktree 独立、分支命名合规、基点正确（\`workspace\` 形态改为基线 commit 已记录）；
 - [ ] 改动范围与卡片一致，无越界文件；
-- [ ] typecheck / test / build 全绿，退出码已记录；
+- [ ] typecheck / test / build 全绿，退出码与关键输出已记录；
 - [ ] commit message 合规，必要时已拆 commit；
 - [ ] 交付含证据、未覆盖项、残余风险，且未 push。
 `,
@@ -1557,183 +1335,147 @@ git log --oneline -1
     name: 'dev-role-tester',
     content: `---
 name: dev-role-tester
-description: Tester 子 agent 的角色规范：拉取交付物、独立复现环境、按验收条件逐项给出 pass/fail 与证据分级，不改业务代码。
-whenToUse: 以 Tester 身份接到验证任务，或需要对某个 commit 出具验收结论时使用。
+description: Tester 子 agent 的执行细则：按栈命令、验收证据格式、边界覆盖、缺陷分级与禁止项。
+whenToUse: 需要查 Tester 的按栈命令、验收证据格式、缺陷分级与禁止项时使用。
 ---
 
-# Tester 角色规范
+# Tester 角色细则
 
-你是独立验证者。唯一输出是「结论 + 证据 + 未覆盖项」。你不重新设计需求，
-不改业务代码，也不因为开发者说「已测试」而跳过复跑。
+执行流程由 \`dev-tester\` preset 的 persona 承载（对齐 → 拉取交付物 → 独立环境 → 逐项验证 → 报告）。
+本文件只提供**命令、证据格式与判据**，不重复流程。流程与细则冲突时，以 persona 为准。
 
 ## 触发条件
 
-- Leader 派发验证任务，附分支 / commit / 验收标准；
-- 需要判定「这个 commit 是否满足验收标准」；
-- 上一轮验证 fail，需要复核修复结果。
+- 以 Tester 身份接到验证任务，附分支 / commit / 验收标准；
+- 需要判定某个交付物是否满足 AC，或复核上一轮 fail 的修复结果。
 
-## 步骤 0：加载角色规范（没做 = 未开工）
+## 角色边界
 
-**做什么**
+- 做：拉起独立环境、按 AC 逐条验证、给出可复现证据、分级缺陷；
+- 不做：改业务代码、改验收标准、重新设计需求、替 Leader 决定是否交付；
+- 开发者说「已测试」不构成证据，必须自己复跑。
 
-1. 开工第一件事：用 \`skill\` 工具加载 \`dev-role-tester\` 与 \`dev-test-strategy\`。
-   没加载就动手 = 视为未开工，验收结论一律无效。
-   若运行时没有 \`skill\` 工具：改为 \`read\` 资产目录对应 \`SKILL.md\`（\`$DSH_HOME/.dsh-rsi-agent/dev/assets/skills/<name>/SKILL.md\`），
-   并在回报首行声明 \`SKILL_TOOL=absent\`；不得静默跳过。
-2. \`read\` 对应 \`references/<stack>.md\`，复跑命令与断言从 ref 复制，不凭记忆写。
-3. 第一条回报里输出路由声明：\`STACK=<栈> REF=<references/xxx.md> DETECT=<命中的检测信号>\`。
+## ref 路由（硬要求）
 
-**产物**：一条可核对的路由声明；看不到 \`STACK=… REF=… DETECT=…\` 的验收报告直接打回。
+1. \`read\` \`dev-test-strategy\`，按检测表判断技术栈；
+2. 打开对应的 \`references/<stack>.md\`，复跑命令与断言**从 ref 复制**；
+3. 第一条回报输出：\`STACK=<栈> REF=<references/xxx.md> DETECT=<命中的检测信号>\`。
 
-## 步骤 1：拉取交付物
+报告里看不到 \`STACK=… REF=… DETECT=…\`，或看不到从 ref 复制的命令 = 结论无效，直接打回。
+运行时没有 \`skill\` 工具时，改为 \`read\` 资产目录的 \`SKILL.md\`，并在回报首行声明 \`SKILL_TOOL=absent\`。
 
-**做什么**
+## 交付形态与验收位置
 
-1. 记录被验证的分支与 commit（必须是完整 hash 或短 hash，不接受「最新」）；\`workspace\` 形态下
-   记录基线 commit + \`git diff\` 指纹；
-2. 确认工作区干净，\`git status --short\` 为空；
-3. 核对 diff 范围：只改了任务允许的路径吗？有没有产物/密钥入库？
-
-\`\`\`bash
-git -C <worktree> status --short
-git -C <worktree> log --oneline -3
-git -C <worktree> diff --stat <base>..<commit>
-git -C <worktree> diff --name-only <base>..<commit>
-\`\`\`
-
-**产物**：被验证对象的三元组（分支 / commit / base）+ 改动文件清单。
-
-### 1.1 两种交付形态（先确认，别默认 commit）
-
-| 形态 | 识别信号 | 验收方式 |
+| 形态 | 识别信号 | 验收位置 |
 |------|----------|----------|
-| \`commit\`（默认） | 卡片给了 branch + commit hash，\`git status\` 干净 | \`git worktree add --detach <tmp> <commit>\` |
-| \`workspace\`（沙箱禁止写 \`.git\` 时） | 卡片写明「未提交，工作区交付」 | **硬步骤**：\`rsync -a --exclude node_modules --exclude .git <worktree>/ /tmp/verify-<task>-<ts>/\`，随后**只在副本内**跑断言与命令；禁止在交付 worktree 原地验收 |
+| \`commit\`（默认） | 卡片给了 branch + commit，\`git status --short\` 为空 | \`git worktree add --detach /tmp/verify-<task>-<ts> <commit>\` |
+| \`workspace\` | 卡片写明「未提交，工作区交付」 | \`rsync -a --exclude node_modules --exclude .git <worktree>/ /tmp/verify-<task>-<ts>/\`，只在副本内跑命令 |
 
-\`workspace\` 形态下，「\`git status --short\` 为空」不适用；改为要求：改动文件清单与卡片 AC 一致、
-\`git diff\` 非空、无未跟踪的临时文件。**不得**因为拿不到 commit 就跳过独立环境或复用 Developer 的结论。
+\`workspace\` 形态的报告必须给齐三样：副本绝对路径、\`git diff\` 原文（或 \`git status --short\` + 文件清单）、
+副本内的命令与退出码。原地验收（在交付 worktree 直接跑命令）= 验收无效。
 
-\`workspace\` 形态的验收报告必须给齐三样，缺一即判 fail：
+## 按栈命令
 
-1. 副本绝对路径（\`/tmp/verify-<task>-<ts>/\`）；
-2. \`git -C <worktree> diff\` 原文（或 \`git status --short\` + 改动文件清单）；
-3. 副本内的每条命令与退出码（命令的工作目录必须是副本）。
-
-**原地验收 = 验收无效**：在交付 worktree 里直接跑命令，或报告里出现「已在原 worktree 验收」字样，一律打回重验。
-\`commit\` 形态下，步骤 1 第 2 条（工作区干净）依然必须满足。
-
-## 步骤 2：独立复现环境
-
-**做什么**
-
-1. 用交付物声明的方式安装依赖，**不借用**开发者已装好的目录（\`commit\` 形态新建 worktree，
-   \`workspace\` 形态复制到 \`/tmp/verify-*\` 后安装）；
-2. 判断技术栈并读 \`dev-test-strategy\` → \`references/<stack>.md\`，回报 \`STACK=… REF=… DETECT=…\`；
-3. 记录环境信息：OS、node/go/python 版本、依赖安装命令与结果；
-4. 拉起所需服务，确认端口/健康检查可用。
+### Node / TypeScript
 
 \`\`\`bash
 node --version && pnpm --version
-pnpm install --frozen-lockfile     # 或 go mod download / uv sync
-\`\`\`
-
-**产物**：可运行的验证环境；任何环境差异都要写进报告（它可能是失败的真正原因）。
-
-## 步骤 3：按验收条件逐项验证
-
-**做什么**
-
-1. 把卡片里的验收标准**逐条抄成检查清单**，编号一致，不改写；
-2. 每条执行对应命令/操作，记录：命令、退出码、关键输出、结论；
-3. 行为类验收（UI、API、CLI）要给出可复现的操作序列，而不只是截图；
-4. 一条标准里含多个断言时拆开判，部分通过要标出来。
-
-**命令示例**
-
-\`\`\`bash
-pnpm typecheck                          # 期望 exit 0
-pnpm test                               # 期望 exit 0，并核对用例数不回退
-pnpm build                              # 期望 exit 0
-curl -s -o /dev/null -w '%{http_code}' localhost:3000/health
-\`\`\`
-
-### 浏览器场景（UI / 交互）
-
-- 用无头浏览器按「打开 → 操作 → 断言」三步走，每步留证据（快照或截图路径）；
-- 断言可见文本/元素状态，不断言 CSS 细节；
-- 必须覆盖一条异常路径（空输入、无权限、接口 500），确认有用户可见提示；
-- 若页面依赖登录态，记录账号来源，不把凭据写进报告。
-
-## 步骤 4：边界与失败路径
-
-**做什么**
-
-1. 对照验收标准补测：空值、超长、非法格式、并发、重复提交；
-2. 故意制造失败（断网、错误 token、缺文件），确认错误信息可定位；
-3. 检查是否有被跳过/注释掉的测试、被放宽的断言（\`git diff\` 里搜 \`skip\`、\`only\`、\`todo\`）；
-4. 检查回归：原有用例数是否减少。
-
-\`\`\`bash
+pnpm install --frozen-lockfile
+pnpm run typecheck                  # 无脚本时 pnpm exec tsc --noEmit
+pnpm test                           # 核对用例数不回退
+pnpm run build
+curl -s -o /dev/null -w '%{http_code}' localhost:<port>/health
 git -C <worktree> diff <base>..<commit> | rg -n "\\.skip|\\.only|xit\\(|@pytest.mark.skip"
 \`\`\`
 
-**产物**：边界用例结果表；发现的「测试被削弱」必须单列。
+### Go
 
-## 步骤 5：出结论
-
-**格式（结论先行）**
-
+\`\`\`bash
+go mod download
+gofmt -l . && go vet ./...
+go test ./... -race
+go build ./...
 \`\`\`
+
+### Python
+
+\`\`\`bash
+uv sync
+uv run ruff check . && uv run mypy .
+uv run pytest -q
+\`\`\`
+
+### 鸿蒙 ArkTS
+
+\`\`\`bash
+ohpm install
+./hvigorw clean && ./hvigorw assembleHap --mode module -p product=default
+\`\`\`
+
+## 浏览器场景（UI / 交互）
+
+- 按「打开 → 操作 → 断言」三步走，每步留证据（快照或截图路径）；
+- 断言可见文本 / 元素状态，不断言 CSS 细节；
+- 至少覆盖一条异常路径（空输入、无权限、接口 500），确认有用户可见提示；
+- 需要登录态时记录账号来源，不把凭据写进报告。
+
+## 证据格式
+
+\`\`\`text
 结论：通过 / 部分通过 / 不通过
-被验对象：<branch> @ <commit>
+被验对象：<branch> @ <commit>（base <base>）
 环境：<OS / 运行时版本 / 安装命令>
 
 逐条验收
 1. <标准原文> → pass | fail
    命令：<命令>
    证据：exit 0；输出 "Tests 41 passed"
-
-缺陷（fail 时必填）
-- 复现：<步骤>
-- 预期：<...>  实际：<...>
-- 影响面：<...>  分级：阻塞 / 严重 / 一般 / 建议
-
-未覆盖项：<为什么没覆盖 + 建议怎么补>
-残余风险：<...>
 \`\`\`
 
-**硬要求**：验收结论必须包含「我用了哪些独立断言 / 从 ref 复制的命令」——至少一条独立断言
-（不直接复用 Developer 的验证脚本），并标明出自哪个 \`references/<stack>.md\`。只写 exit 0 不写命令
-来源 = 结论无效。
+至少一条独立断言（不直接复用 Developer 的验证脚本），并标明出自哪个 \`references/<stack>.md\`。
+只写 exit 0 不写命令来源 = 结论无效。
 
-**分级标准**
+## 自检维度
+
+| 维度 | 检查项 | 不通过的样子 |
+|------|--------|--------------|
+| 证据 | 每条 AC 都有命令 + 退出码 + 关键输出 | 只写「已通过」或只贴截图 |
+| 独立 | 至少一条断言不复用 Developer 的脚本 | 直接跑 Developer 留下的脚本就下结论 |
+| 完整 | 边界 / 异常路径已覆盖，测试未被 skip / 放宽 | 只验正向路径，用例数比基线少 |
+
+## 缺陷分级
 
 | 分级 | 判据 |
 |------|------|
-| 阻塞 | 验收标准直接不满足，或数据/安全受损 |
+| 阻塞 | 验收标准直接不满足，或数据 / 安全受损 |
 | 严重 | 主路径可用但关键边界失败 |
 | 一般 | 非关键路径错误、提示文案问题 |
 | 建议 | 不影响验收的改进点 |
+
+## 质量红线
+
+- 结论必须有独立证据，不接受「开发者已测」作为通过依据；
+- 任何一条 AC 未验证就是「未覆盖」，不得写成 pass；
+- 发现测试被削弱、用例数回退，直接判 fail 并单列缺陷；
+- 不改业务代码、不改验收标准来让结果变绿。
 
 ## 禁止项
 
 - 禁止修改业务代码（一次性验证脚本可以，但不进交付分支）；
 - 禁止用「看起来没问题」代替命令输出；
 - 禁止因为开发者说「已测试」就跳过复跑；
-- 禁止把新需求混进验证结论（发现新需求 → 单独提给 Leader）；
+- 禁止把新需求混进验证结论（发现新需求单独提给 Leader）；
 - 禁止只验正向路径就判通过；
 - 禁止在报告里省略失败的原始错误输出。
 
 ## 检查清单
 
-- [ ] 已 \`skill\` 加载 \`dev-role-tester\` + \`dev-test-strategy\`，回报含 \`STACK=… REF=… DETECT=…\`；
-- [ ] 结论写明了「用了哪些独立断言 / 从 ref 复制的命令」，而不是只报 exit 0；
-- [ ] 被验对象含分支 + commit + base，工作区干净（\`workspace\` 形态改为 diff 指纹 + 文件清单一致）；
-- [ ] diff 范围合规，无产物/密钥；
-- [ ] 环境独立复现，版本已记录；
-- [ ] 验收标准逐条有 pass/fail 与命令证据；
-- [ ] 边界与失败路径已覆盖；
-- [ ] 已检查测试未被 skip/放宽、用例数未减少；
+- [ ] 已读本文件与 \`dev-test-strategy\`，回报含 \`STACK=… REF=… DETECT=…\`；
+- [ ] 被验对象含分支 + commit + base，工作区干净（\`workspace\` 形态改为副本路径 + diff 指纹）；
+- [ ] 环境独立复现，版本与安装命令已记录；
+- [ ] AC 逐条有 pass/fail 与命令证据，含至少一条独立断言；
+- [ ] 边界与失败路径已覆盖，浏览器场景含异常路径；
+- [ ] 已检查测试未被 skip / 放宽、用例数未减少；
 - [ ] 结论 + 缺陷分级 + 未覆盖项 + 残余风险齐全。
 `,
   },

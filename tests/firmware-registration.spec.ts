@@ -3,12 +3,12 @@
  *
  * 背景：core 的 `registerFirmwareSkills()` 只注册 core 自己的 3 个固件 SKILL，
  * `pack.firmwareSkills` 仅用于重名冲突校验。若不修，挂载后
- * `skills.get('dev-dispatch-contract')` 是 undefined，README 的「9 个领域 Skill 可用」不成立。
+ * `skills.get('dev-dispatch-contract')` 是 undefined，README 的「8 个领域 Skill 可用」不成立。
  *
  * 两层：
  *   - **纯函数层**：frontmatter 解析、注册参数构造、注册计划查重；
  *   - **集成层**：真实 `SkillRegistry` + `AgentHost` + `apply()`，
- *     验证 2 个固件可见 / 7 个种子仍可见 / 卸载反注册 / skills 缺失降级。
+ *     验证 2 个固件可见 / 6 个种子仍可见 / 卸载反注册 / skills 缺失降级。
  */
 import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -265,7 +265,7 @@ describe('注册失败回滚与幂等查重', () => {
  * ------------------------------------------------------------------ */
 
 describe('真实挂载（SkillRegistry + AgentHost + apply）', () => {
-  it('挂载后 2 个固件 Skill 立即可见，provider 就绪后 7 个种子也在；工具面仍为空', async () => {
+  it('挂载后 2 个固件 Skill 立即可见，provider 就绪后 6 个种子也在；工具面仍为空', async () => {
     isolatedHome('mount')
     const ctx = new Context()
     const registry = new SkillRegistry(ctx)
@@ -289,7 +289,7 @@ describe('真实挂载（SkillRegistry + AgentHost + apply）', () => {
       expect(definition?.content).toContain('派发契约')
       expect(definition?.invocation).toEqual({ modelInvocable: true, userInvocable: true })
 
-      // 7 个可进化种子由 skill-filesystem provider 提供：就绪后可见。
+      // 6 个可进化种子由 skill-filesystem provider 提供：就绪后可见。
       await host.skillProviderReady
       const names = (await registry.list({})).map((summary) => summary.name)
       for (const seed of SEED_SKILLS) expect(names).toContain(seed.name)
@@ -299,7 +299,7 @@ describe('真实挂载（SkillRegistry + AgentHost + apply）', () => {
     }
   }, 40_000)
 
-  it('卸载领域后 2 个固件 Skill 被反注册，7 个种子资产仍保留在磁盘', async () => {
+  it('卸载领域后 2 个固件 Skill 被反注册，6 个种子资产仍保留在磁盘', async () => {
     isolatedHome('dispose')
     const ctx = new Context()
     const registry = new SkillRegistry(ctx)

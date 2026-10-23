@@ -1,6 +1,6 @@
 /**
  * `scripts/verify-install.mjs` 单测（夹具全为 `mkdtempSync` 临时目录，不依赖真实 `DSH_HOME`）：
- * 全通过 14 条 PASS、缺种子 / 空 reference / 缺固件、exitCode、formatReport、解析优先级、
+ * 全通过 13 条 PASS、缺种子 / 空 reference / 缺固件、exitCode、formatReport、解析优先级、
  * CLI 退出码 2（`--assets` / `DSH_HOME`）、templates 回退、符号链接调用不静默 exit 0。
  */
 import { spawnSync } from 'node:child_process'
@@ -26,7 +26,7 @@ function writeFile(target: string, content: string): void {
   writeFileSync(target, content, 'utf8')
 }
 
-/** 完整夹具：7 种子 + 5 references + 2 固件。 */
+/** 完整夹具：6 种子 + 5 references + 2 固件。 */
 function makeFixture(): { root: string; assetsRoot: string; firmwareRoot: string } {
   const root = mkdtempSync(join(tmpdir(), 'verify-install-'))
   temporaryRoots.push(root)
@@ -50,20 +50,20 @@ afterEach(() => {
 })
 
 describe('verifyInstall', () => {
-  it('完整夹具 → 14 条 PASS、ok=true、退出码 0，报告含全部名称', () => {
+  it('完整夹具 → 13 条 PASS、ok=true、退出码 0，报告含全部名称', () => {
     const result = verifyInstall(makeFixture())
     const report = formatReport(result)
     const text = report.join('\n')
-    expect(EXPECTED_CHECK_COUNT).toBe(14)
-    expect([result.checks.length, result.passed, result.failed, exitCode(result)]).toEqual([14, 14, 0, 0])
-    expect(checkLines(report)).toHaveLength(14)
+    expect(EXPECTED_CHECK_COUNT).toBe(13)
+    expect([result.checks.length, result.passed, result.failed, exitCode(result)]).toEqual([13, 13, 0, 0])
+    expect(checkLines(report)).toHaveLength(13)
     expect(checkLines(report).every((line) => line.startsWith('PASS'))).toBe(true)
     for (const name of EXPECTED_SEED_SKILLS) expect(text).toContain(`seed ${name}`)
     for (const stack of EXPECTED_REFERENCE_STACKS) expect(text).toContain(`reference ${stack}`)
     for (const name of EXPECTED_FIRMWARE_SKILLS) expect(text).toContain(`firmware ${name}`)
   })
 
-  /** 三类失败：破坏夹具后应恰好 1 条 FAIL（带路径），其余 13 条 PASS。 */
+  /** 三类失败：破坏夹具后应恰好 1 条 FAIL（带路径），其余 12 条 PASS。 */
   const dropDir = (dir: string): string => (rmSync(dir, { recursive: true, force: true }), join(dir, 'SKILL.md'))
   const emptyFile = (file: string): string => (writeFileSync(file, '', 'utf8'), file)
   const failureCases = [
@@ -77,7 +77,7 @@ describe('verifyInstall', () => {
     { label: '缺 1 个固件目录', kind: 'firmware', name: EXPECTED_FIRMWARE_SKILLS[0], mutate: ({ firmwareRoot }: { firmwareRoot: string }) => dropDir(join(firmwareRoot, EXPECTED_FIRMWARE_SKILLS[0])) },
   ]
 
-  it.each(failureCases)('$label → 1 条 FAIL（带路径）+ 13 条 PASS，退出码 1', ({ kind, name, mutate }) => {
+  it.each(failureCases)('$label → 1 条 FAIL（带路径）+ 12 条 PASS，退出码 1', ({ kind, name, mutate }) => {
     const fixture = makeFixture()
     const target = mutate(fixture)
     const lines = checkLines(formatReport(verifyInstall(fixture)))
@@ -86,7 +86,7 @@ describe('verifyInstall', () => {
     expect(fails).toHaveLength(1)
     expect(fails[0]).toContain(`${kind} ${name}`)
     expect(fails[0]).toContain(target)
-    expect(lines.filter((line) => line.startsWith('PASS'))).toHaveLength(13)
+    expect(lines.filter((line) => line.startsWith('PASS'))).toHaveLength(12)
   })
 
   it('formatReport 每条检查一项：无重复、无遗漏、顺序与清单一致', () => {
@@ -139,17 +139,17 @@ describe('CLI 退出码', () => {
     const child = spawnSync(process.execPath, [SCRIPT], { encoding: 'utf8', env })
     expect(child.status).toBe(0)
     expect(child.stdout).toContain('仓库模板回退')
-    expect(checkLines(child.stdout.split('\n'))).toHaveLength(14)
+    expect(checkLines(child.stdout.split('\n'))).toHaveLength(13)
   })
 
-  it.skipIf(process.platform === 'win32')('经符号链接路径调用 → 仍跑满 14 项 PASS，不静默 exit 0', () => {
+  it.skipIf(process.platform === 'win32')('经符号链接路径调用 → 仍跑满 13 项 PASS，不静默 exit 0', () => {
     const link = join(makeFixture().root, 'verify-link.mjs')
     symlinkSync(SCRIPT, link)
     const repo = fileURLToPath(new URL('..', import.meta.url))
     const args = [link, '--assets', join(repo, 'templates'), '--firmware', join(repo, 'skills')]
     const child = spawnSync(process.execPath, args, { encoding: 'utf8' })
     const lines = checkLines(child.stdout.split('\n'))
-    expect([child.status, child.stdout.length > 0, lines.length]).toEqual([0, true, 14])
+    expect([child.status, child.stdout.length > 0, lines.length]).toEqual([0, true, 13])
     expect(lines.every((line) => line.startsWith('PASS'))).toBe(true)
   })
 })
