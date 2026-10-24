@@ -94,6 +94,8 @@
                 - 不把「我跑过了」当证据，必须贴命令与退出码。
                 - 不提交 dist/、node_modules/、.env、日志；不 git add . 盲加；不 push、不开 PR。
                 - 不越过卡片范围改其他任务 / 主仓库 / 其他 worktree。
+                - 项目落位：不自行选项目路径；新项目 / 克隆项目只落在 <workspace>/projects/<repo>（<workspace> 用 pwd -P 取），
+                  既有本地仓库原地使用不迁移；不在 workspace 根 / projects 根 / $HOME / ~/project / ~/agents 下直接 git init 或 git clone。
               complete: true
           - id: tool-fs
             name: '@deepseek-ai/dsh-tool-fs'
@@ -141,6 +143,7 @@
                 - 不因开发者说「已测试」跳过复跑；不只验正向路径就判通过。
                 - 不省略失败的原始错误输出；不把 exit 0 当行为正确的证据。
                 - 不把新需求混进验证结论，发现新需求单独提给 Leader。
+                - 项目落位：不自行选路径、不建项目目录；只在卡片给定的 worktree 或 /tmp/verify-* 副本内工作。
               complete: true
           - id: tool-fs
             name: '@deepseek-ai/dsh-tool-fs'

@@ -219,11 +219,48 @@ cwd 做一次；`GIT_WRITE_BLOCKED` 下不要反复重试或尝试提权。
   一律打回重验；
 - 修完 FAIL 必须完整重跑，不只跑失败那条；测试被 `skip` / 放宽断言视为未通过。
 
+## 项目落位
+
+**硬规则：所有项目一律落在 `<workspace>/projects/<repo>`。**
+
+`<workspace>` 是 dsh 会话默认 cwd（用 `pwd -P` 取真实路径），**不是** `DSH_HOME`；两者不要混用。
+Leader 在阶段 1·对齐时就要定好路径并写进派发卡片第 5 项，子 agent 不得自行选路径。
+
+| 场景 | 做法 |
+|------|------|
+| 新建项目 | `mkdir -p <workspace>/projects/<repo>` 后 `git init` |
+| 克隆项目 | `git clone <url> "<workspace>/projects/<repo>"` |
+| 卡片给的是外部路径 | 改写成 `<workspace>/projects/<repo>` 并说明；用户坚持原路径 → 停下确认 |
+| 既有本地仓库 | 原地使用，不迁移、不复制，不在 `projects/` 下再克隆一份 |
+| `<workspace>/projects/<repo>` 已存在且非空 | 停下问是复用还是换名，不覆盖、不删除 |
+
+正例：
+
+```bash
+ws=$(pwd -P)                      # /Users/me/agents/dsh-dev
+mkdir -p "$ws/projects/pricing-svc"
+cd "$ws/projects/pricing-svc" && git init
+
+git clone git@github.com:acme/report.git "$ws/projects/report"
+```
+
+反例（一律禁止）：
+
+```bash
+cd "$(pwd -P)" && git init        # workspace 根变成了项目仓
+git init                           # <workspace>/projects 根
+cd "$HOME" && git clone <url>      # $HOME / ~/project / ~/agents 下直接落位
+```
+
+收益：项目可预测、可整体备份 / 迁移；worktree 落在 `<workspace>/projects/.worktrees/` 后，
+`git-common-dir` 也在 workspace 内，默认 `workspace-write` 沙箱即可 commit，无须降级 `delivery_mode=workspace`。
+细则见 `dev-worktree-git`（真源 `templates/dev-worktree-git/SKILL.md`）。
+
 ## 开发
 
 ```bash
 pnpm typecheck     # tsc --noEmit
-pnpm test          # vitest（57 个用例：契约 / 种子 / references / 校验 / 固件注册 / 真实 AgentHost 集成 / 安装后自检）
+pnpm test          # vitest（58 个用例：契约 / 种子 / references / 校验 / 固件注册 / 真实 AgentHost 集成 / 安装后自检）
 pnpm build         # 编译到 dist-server/ 并复制 cordis.patch.yml（内含 typecheck）
 pnpm verify:install # 13 项安装后自检（DSH_HOME 已设置时校验安装态资产）
 ```
@@ -231,7 +268,7 @@ pnpm verify:install # 13 项安装后自检（DSH_HOME 已设置时校验安装�
 改种子请先改 `templates/<name>/`（含 `references/*.md`），再同步 `src/seeds.ts`——
 测试会与 templates 逐字节比对，漂移会直接失败。
 
-> `pnpm test` 带 `--passWithNoTests`：0 个用例也会退出 0。成功判据是 **57 passed**，不是只看退出码。
+> `pnpm test` 带 `--passWithNoTests`：0 个用例也会退出 0。成功判据是 **58 passed**，不是只看退出码。
 
 ## 8 个领域 Skill（运行态 11 条）
 

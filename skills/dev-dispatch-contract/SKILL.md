@@ -40,8 +40,9 @@ whenToUse: 准备调用 subagent 派发任务之前，或收到子 agent 回报�
 3. 背景：为什么做；关联文档链接 / Issue / 上一轮结论（写链接，不写「见上」）
 4. 目标（一句话交付物）：把 3 个 SKILL.md 从骨架扩写成含四节的完整规则
 5. 路径与分支：
-   - 项目根：/abs/path/to/repo
-   - worktree：/abs/path/to/worktrees/<repo>-<type>-<task>
+   - 项目根：<workspace>/projects/<repo>（绝对路径；<workspace> = `pwd -P`，不是 `DSH_HOME`；
+     既有本地仓库按它实际路径写，并注明「原地使用，不迁移、不复制」）
+   - worktree：<workspace>/projects/.worktrees/<repo>-<type>-<task>
    - 分支：feat/task-03-firmware-skills（基于 45a1443）
 6. 验收标准（逐条可判定）：
    - [ ] AC1 三个文件均含 `## 触发条件` / `## 步骤` / `## 禁止项` / `## 检查清单`
@@ -70,6 +71,9 @@ whenToUse: 准备调用 subagent 派发任务之前，或收到子 agent 回报�
   不写进卡片就等于没有约束）。
 - 第 10 项必须显式写 `delivery_mode`；`workspace` 时还要写清「Tester 如何取得交付物」（复制路径/忽略目录）。
 - 路径写绝对路径；相对路径在子 agent 的 cwd 里可能解析不到。
+- 项目落位硬规则（第 5 项）：新项目 / 克隆项目一律落 `<workspace>/projects/<repo>`，`<workspace>` 用 `pwd -P` 取；
+  禁止直接落在 workspace 根、`<workspace>/projects` 根、`$HOME`、`~/project`、`~/agents`。
+  卡片给的外部路径要改写成 `projects/` 下并说明；用户坚持原路径才停下确认。既有本地仓库原地使用，不迁移、不复制。
 
 ### 3. 调用方式
 
@@ -165,6 +169,7 @@ subagent({
 - [ ] 10 个字段全部填满，无「待补充」「见上」
 - [ ] 每条 AC 可判定，附了判定方式（命令 / 文件检查）
 - [ ] 项目路径与 worktree 真实存在（`ls` 过）
+- [ ] 第 5 项项目根为 `<workspace>/projects/<repo>` 绝对路径（既有仓库按实际路径并注明原地使用，不迁移不复制）
 - [ ] 分支已建，基线 commit 写进卡片
 - [ ] 约束写明只读目录、禁止 push、禁止改动的模块
 - [ ] 交付格式写明分支 + commit + 命令退出码 + 未覆盖项

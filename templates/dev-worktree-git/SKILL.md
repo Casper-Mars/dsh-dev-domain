@@ -43,12 +43,19 @@ esac
 > 禁止在 `GIT_WRITE_BLOCKED` 下假装已建分支/已提交；也禁止把 `git switch -c` 失败后的重试当成进展。
 > 预检只做一次，结果写进任务卡第 5 项与第 10 项。
 
+项目位于 `<workspace>/projects/<repo>` 时，worktree 与本项目的 `git-common-dir` 都在 `<workspace>` 内，
+预检结果应当是 `GIT_WRITE_OK`：默认 `workspace-write` 沙箱可写，直接按下面的规范建 worktree 并 commit，
+不要因「worktree 可能越界」提前降级成 `delivery_mode=workspace`。若仍得到 `GIT_WRITE_BLOCKED`，
+说明项目不在 `<workspace>/projects` 下（见第三节例外），按上表处理，不要靠重试或提权绕过。
+
 ## 一、创建 worktree（仅 `GIT_WRITE_OK` 时）
 
 ```bash
-cd <项目根目录>
+ws=$(pwd -P)                                   # dsh workspaceRoot = 启动 dsh 时的 cwd
+mkdir -p "$ws/projects/.worktrees"
+cd "$ws/projects/<repo>"
 git worktree add -b <type>/<任务号>-<描述> \
-  <项目根目录>/../worktrees/<项目名>-<type>-<任务号>-<描述>
+  "$ws/projects/.worktrees/<repo>-<type>-<任务号>-<描述>" <base-ref>
 ```
 
 要点：
@@ -86,11 +93,17 @@ chore/bump-vitest-3-2
 ## 三、worktree 路径约定
 
 ```
-<项目根目录>/../worktrees/<项目名>-<type>-<任务号>-<描述>
+<workspace>/projects/.worktrees/<repo>-<type>-<任务号>-<描述>
 ```
 
-- 所有 worktree 平铺在 `worktrees/` 下，不放嵌套目录；
-- 目录名 = 项目名 + 分支名（`/` 换成 `-`），一眼能从目录反推分支；
+- `<workspace>` 是 `pwd -P` 取到的真实 cwd（dsh `workspaceRoot`），**不是** `DSH_HOME`；两者不要混用；
+- 所有 worktree 平铺在 `<workspace>/projects/.worktrees/` 下，不放嵌套目录；
+- 目录名 = 仓库名 + 分支名（`/` 换成 `-`），一眼能从目录反推分支；
+- 项目在 `<workspace>/projects/<repo>` 时，worktree 与 `git-common-dir` 均在 workspace 内，
+  `workspace-write` 沙箱可直接 `git worktree add` / `commit`，无需降级交付形态；
+- 例外：既有本地仓库不在 `projects/` 下时，worktree 放在该仓库同一 workspace 内的
+  `<该仓库父目录>/.worktrees/<repo>-<type>-<任务号>-<描述>`，并在卡片第 5 项写明路径与理由；
+  不得以「例外」为由把新项目落到 workspace 根；
 - 不共用目录：同一个 worktree 同时只服务一个任务，不借给他人跑验证；
 - 依赖装在 worktree 内（`pnpm install` / `go mod download`），不依赖全局环境。
 
@@ -179,7 +192,7 @@ git -C <项目根目录> branch -d <branch>                # 已合并用 -d
 ## 检查清单
 
 - [ ] 开工前已跑写权限预检，结果（`GIT_WRITE_OK` / `GIT_WRITE_BLOCKED`）与所选交付形态已记录；
-- [ ] worktree 路径符合 `<项目名>-<type>-<任务号>-<描述>`；
+- [ ] worktree 路径符合 `<workspace>/projects/.worktrees/<repo>-<type>-<任务号>-<描述>`（例外已在卡片第 5 项写明）；
 - [ ] 分支名符合 `<type>/<任务号>-<描述>`，type 在允许列表内；
 - [ ] 起点 ref 明确，`git log -1` 已确认；
 - [ ] commit 标题符合 `type(scope): 说明`，正文写了为什么与验证方式；

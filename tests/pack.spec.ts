@@ -275,6 +275,19 @@ describe('assets.bootstrap 种子注册', () => {
     }
   })
 
+  it('项目落位：worktree 路径统一到 <workspace>/projects/.worktrees，种子与模板同步', () => {
+    const worktree = readTemplate('dev-worktree-git')
+    expect(worktree).toContain('<workspace>/projects/.worktrees/<repo>-<type>-<任务号>-<描述>')
+    expect(worktree).toContain('`pwd -P` 取到的真实 cwd')
+    expect(worktree).toContain('应当是 `GIT_WRITE_OK`')
+    // 旧的 <项目根目录>/../worktrees 约定不得回潮。
+    expect(worktree).not.toContain('/../worktrees/')
+
+    const decompose = readTemplate('dev-decompose')
+    expect(decompose).toContain('<workspace>/projects/<repo>')
+    expect(decompose).toContain('原地使用，不迁移、不复制')
+  })
+
   it('5 个 references 结构完整：检测 / 环境 / 构建 / 检查 / 测试 / 样例 / 坑 / 判据', () => {
     for (const spec of referenceSpecs()) {
       for (const heading of [
@@ -438,6 +451,17 @@ describe('Leader 人设与子 agent 隔离', () => {
     expect(persona).toContain('`dev-dispatch-contract`')
     expect(persona).toContain('`dev-quality-gate`')
     expect(persona).not.toContain('绝不自己写业务代码')
+    // 项目落位硬规则：路径一律 <workspace>/projects/<repo>，<workspace> 用 pwd -P 取。
+    expect(persona).toContain('项目落位（硬规则）')
+    expect(persona).toContain('`pwd -P`')
+    expect(persona).toContain('`<workspace>/projects/<repo>`')
+    expect(persona).toContain('`mkdir -p <workspace>/projects/<repo>`')
+    expect(persona).toContain('`git clone <url> "<workspace>/projects/<repo>"`')
+    expect(persona).toContain('原地使用，不迁移、不复制')
+    expect(persona).toContain('停下问是复用还是换名')
+    for (const forbidden of ['workspace 根', '`<workspace>/projects` 根', '`$HOME`', '`~/project`', '`~/agents`']) {
+      expect(persona, `项目落位规则缺少禁止目录「${forbidden}」`).toContain(forbidden)
+    }
     expect(Buffer.byteLength(persona, 'utf8')).toBeLessThanOrEqual(64 * 1024)
   })
 
@@ -464,8 +488,8 @@ describe('Leader 人设与子 agent 隔离', () => {
 
       const required =
         section.includes('id: dev-developer\n')
-          ? ['对齐', 'worktree', 'references/<stack>.md', '自测', '交付']
-          : ['对齐', 'verify-', '逐项', '报告']
+          ? ['对齐', 'worktree', 'references/<stack>.md', '自测', '交付', '项目落位']
+          : ['对齐', 'verify-', '逐项', '报告', '项目落位']
       for (const keyword of required) {
         expect(prefix, `persona 骨架缺少「${keyword}」`).toContain(keyword)
       }
