@@ -210,6 +210,7 @@ cwd 做一次；`GIT_WRITE_BLOCKED` 下不要反复重试或尝试提权。
 
 ### 验证纪律
 
+- **进度记录**：跟踪任务进度：优先用可用工具；确实没有工具时，才写 <workspace>/task-status.md（workspace 根，不放项目仓内）。
 - **triage ≠ 独立验收**：Leader 只读检查文件是否存在、diff 是否越界、证据是否齐全，不能作为交付依据；
 - **编码任务必须跑三件套**：`typecheck` → `test` → `build`，按仓库实际脚本执行并记录退出码；
 - **Tester 必须独立重跑**：`commit` 形态用临时 worktree，`workspace` 形态先

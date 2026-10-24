@@ -13,7 +13,7 @@ whenToUse: 收到子 agent 产物或 Tester 报告、准备 commit、准备把�
 - 收到子 agent 的完成回报，需要判断产物能不能进下一步；
 - 收到 Tester 的验收报告，需要判定 PASS / FAIL 与严重度；
 - 准备 `git commit`、`git push` 或对用户宣布交付；
-- 准备把任务状态文件（`$DSH_HOME/.dsh-rsi-agent/dev/memory/task-status.md` 或交付正文里的同字段表格）里的任务改成 ✅；
+- 跟踪任务进度：优先用可用工具；确实没有工具时，才写 <workspace>/task-status.md（workspace 根，不放项目仓内）。
 - 修复完成后准备重跑（必须走完整门，不是只跑失败那条）。
 
 ## 步骤
@@ -177,4 +177,4 @@ $ pnpm build → exit 0
 - [ ] 交付声明含分支 + commit + 命令退出码 + 逐条 AC
 - [ ] 未覆盖项与残余风险已逐条列出（没有就写「无」）
 - [ ] `minor` 已修复或登记为遗留
-- [ ] 任务状态已更新，并写明等用户确认后再推进
+- [ ] 进度已按兜底规则记录（优先用工具；确实没有才写 <workspace>/task-status.md），并写明等用户确认后再推进

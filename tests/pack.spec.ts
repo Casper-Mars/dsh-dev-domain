@@ -26,6 +26,13 @@ import {
 import { devPack } from '../src/pack'
 import { SEED_SKILLS } from '../src/seeds'
 
+/** 任务进度的唯一规则：有工具用工具，确实没有才落盘兜底。 */
+const PROGRESS_RULE =
+  '跟踪任务进度：优先用可用工具；确实没有工具时，才写 <workspace>/task-status.md（workspace 根，不放项目仓内）。'
+
+/** 旧状态文件路径：拼接构造，避免测试自身被全仓 grep 命中。 */
+const LEGACY_STATUS_PATH = ['$DSH_HOME', '.dsh-rsi-agent', 'dev', 'memory', 'task-status.md'].join('/')
+
 /* ------------------------------------------------------------------ *
  * 工具
  * ------------------------------------------------------------------ */
@@ -421,6 +428,13 @@ describe('固件 Skill', () => {
     }
   })
 
+  it('quality-gate 的进度规则与 persona 同一句，且不含旧状态文件路径', () => {
+    const markdown = readFirmware('dev-quality-gate')
+    expect(markdown).toContain(PROGRESS_RULE)
+    expect(markdown).not.toContain(LEGACY_STATUS_PATH)
+    expect(markdown).not.toContain('同字段表格')
+  })
+
   it('2 个固件与 6 个种子名称互不重复', () => {
     const firmwareNames = new Set((devPack.firmwareSkills ?? []).map((skill) => skill.name))
     for (const seed of SEED_SKILLS) {
@@ -462,6 +476,13 @@ describe('Leader 人设与子 agent 隔离', () => {
     for (const forbidden of ['workspace 根', '`<workspace>/projects` 根', '`$HOME`', '`~/project`', '`~/agents`']) {
       expect(persona, `项目落位规则缺少禁止目录「${forbidden}」`).toContain(forbidden)
     }
+    // 进度规则收敛为一句话：优先工具，确实没有才落盘到 workspace 根。
+    expect(persona).toContain(PROGRESS_RULE)
+    expect(persona.match(/task-status\.md/g) ?? [], 'persona 里 task-status.md 只能出现 1 次').toHaveLength(1)
+    expect(persona).not.toContain(LEGACY_STATUS_PATH)
+    expect(persona).not.toContain(['tool', 'goal'].join('-'))
+    expect(persona).not.toContain('goal')
+    expect(persona).not.toContain('同字段表格')
     expect(Buffer.byteLength(persona, 'utf8')).toBeLessThanOrEqual(64 * 1024)
   })
 
